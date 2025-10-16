@@ -1,0 +1,13 @@
+<h2>Buscar Producto<h2>
+<form method="GET" action="{% url 'producto' %}">
+    <input type="text" name="nombre" placeholder="Nombre del producto">
+    <button type="submit">Buscar</button>
+</form>
+
+<h2>Prodcutos: <h2>
+<ul>
+    {% for producto in productos %}
+        <li>{{ producto.nombre }} - ${{ producto.precio }} - Stock: {{ producto.stock }}</li>
+    {% empty %}
+        <li>No se encontraron productos.</li>
+    {% endfor %}

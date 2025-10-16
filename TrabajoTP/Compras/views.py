@@ -18,3 +18,13 @@ def crear_Producto(request):
         producto.save()
         return HttpResponse("Producto creado exitosamente.")
     return render(request, 'Compras/crear_producto.html')
+
+def producto(request):
+    productos = Producto.objects.all()
+    return render(request, 'Compras/producto.html', {'productos': productos})
+
+def buscar_producto(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        productos = Producto.objects.filter(Nombre__icontains=nombre)
+        return render(request, 'Compras/producto.html', {'productos': productos})
