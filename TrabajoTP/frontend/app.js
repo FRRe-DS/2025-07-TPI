@@ -1,10 +1,5 @@
 // En app.js
 
-// Espera a que todo el HTML esté cargado
-document.addEventListener('DOMContentLoaded', () => {
-    cargarProductos();
-});
-
 // Función para llamar a tu API de Django y mostrar los productos
 async function cargarProductos() {
     // La URL de tu API de Django
@@ -40,6 +35,7 @@ async function cargarProductos() {
 
         // Dibuja cada producto en el HTML
         productos.forEach(producto => {
+            console.log("Datos del producto:", producto);
             const card = document.createElement('article');
             card.className = 'product__card'; //
             
@@ -50,7 +46,7 @@ async function cargarProductos() {
                 </div>
                 <div class="product__info">
                     <h3>${producto.nombre}</h3>
-                    <p>$${producto.precio}</p>
+                    <p>$${producto.precio.amount}</p>
                 </div>
                 <button class="btn btn-add">Añadir al carrito</button>
             `;
@@ -64,3 +60,30 @@ async function cargarProductos() {
         console.error("Error al cargar productos:", error);
     }
 }
+
+// --- Código para los botones de Login/Sign Up ---
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // Busca los botones por su clase CSS
+    const loginButton = document.querySelector('.btn--login');
+    const signupButton = document.querySelector('.btn--Sign_Up'); // Corregido: Usa la clase exacta del HTML
+
+    // Si encuentra el botón de login, añade el evento
+    if (loginButton) {
+        loginButton.addEventListener('click', () => {
+            // Redirige a la página de login
+            window.location.href = 'login.html'; 
+        });
+    }
+
+    // Si encuentra el botón de sign up, añade el evento
+    if (signupButton) {
+        signupButton.addEventListener('click', () => {
+            // Redirige a la página de registro
+            window.location.href = 'register.html'; 
+        });
+    }
+
+    // Llama a la función que ya tenías para cargar productos
+    cargarProductos(); 
+});

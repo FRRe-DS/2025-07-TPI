@@ -20,28 +20,37 @@ import httpx
 def Inicio(request):
     return render(request, 'Compras/Inicio.html')
 
-@api_view(['GET']) # <-- Esto le dice a DRF que esta vista es una API
+@api_view(['GET'])
 def lista_productos(request):
-    stock_url = "http://127.0.0.1:8082/productos"
-
-    print(f"--- Intentando llamar a: {stock_url} ---")
     
+    # Esta es la URL del mock de Stock (main.py)
+    stock_url = "http://127.0.0.1:8001/api/product" 
+    
+    print(f"--- [Django] Intentando llamar a: {stock_url} ---")
+
     try:
-        # 1. Usamos httpx para "llamar" al OTRO servicio
+        # 1. Llamada simple, sin tokens
         response = httpx.get(stock_url)
-        response.raise_for_status() # Lanza un error si la API de Stock falló
+        response.raise_for_status() # Lanza un error si la API de Stock falla
         
-        # 2. Obtenemos los productos que nos dio Stock en formato JSON
         productos_json = response.json()
+        print("--- [Django] ¡Llamada exitosa! Productos recibidos de Stock. ---")
         
-        # 3. Usamos 'Response' de DRF para devolver el JSON al frontend
+        # 2. Devuelve los productos al frontend
         return Response(productos_json) 
         
+    except httpx.HTTPStatusError as exc:
+        # Captura errores 4xx y 5xx del mock de Stock
+        print(f"--- [Django] ERROR: El mock de Stock devolvió: {exc.response.status_code} ---")
+        return Response(
+            {"error": f"Error al conectar con Stock: {exc.response.status_code}"}, 
+            status=exc.response.status_code
+        )
     except httpx.RequestError as exc:
-        # 4. Si la API de Stock se cayó, le avisamos al frontend
+        # Captura el error si el mock de Stock está apagado
+        print(f"--- [Django] ERROR: No se pudo conectar al mock de Stock. ¿Está apagado? ---")
         error_msg = {"error": "El servicio de Stock no está disponible."}
-        # 502 = "Bad Gateway", un error estándar para esto
-        return Response(error_msg, status=502)
+        return Response(error_msg, status=502) # 502 Bad Gateway
 
 
 class RegisterView(generics.CreateAPIView):

@@ -7,9 +7,15 @@ app = FastAPI(title="Stock API", version="1.0.0")
 # “DB” en memoria
 PRODUCTOS: Dict[str, Producto] = {
     "P1": Producto(id="P1", nombre="Notebook 14", descripcion="8GB/256GB",
-                   precio=Dinero(amount=499999), pesoKg=1.4, stock=5),
+                   precio=Dinero(amount=499999), pesoKg=1.4, stock=5,
+                   imagen_url="https://imgs.search.brave.com/HvJuCvUdhcz3YKmuV9OPHGp8xjBvk_4VGTHdOpqDNh8/rs:fit:0:180:1:0/g:ce/aHR0cHM6Ly9pLmJs/b2dzLmVzL2U0Y2U5/NC9uZXMzLzQ1MF8x/MDAwLmpwZw"
+                   ),
+                   
     "P2": Producto(id="P2", nombre="Mouse USB", descripcion="Óptico",
-                   precio=Dinero(amount=8999), pesoKg=0.2, stock=25),
+                   precio=Dinero(amount=8999), pesoKg=0.2, stock=25,
+                   imagen_url="https://imgs.search.brave.com/3t0uXiGJjuQEk5zVpppmxBdkna214L-3lybholZhaG4/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly91cGxv/YWQud2lraW1lZGlh/Lm9yZy93aWtpcGVk/aWEvY29tbW9ucy8w/LzA0L05pbnRlbmRv/LUVudGVydGFpbm1l/bnQtU3lzdGVtLU5F/Uy1aYXBwZXItR3Jh/eS1SLmpwZw"
+                   ),
+                   
 }
 BOOKINGS: Dict[str, Booking] = {}      # bookingId -> Booking
 POR_COMPRA: Dict[str, str] = {}        # compraId  -> bookingId

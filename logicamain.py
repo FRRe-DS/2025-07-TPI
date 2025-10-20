@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from typing import Dict
-from dtos import TrackingRequest, Tracking
+from logica import TrackingRequest, Tracking
 
 app = FastAPI(title="Logística API", version="1.0.0")
 

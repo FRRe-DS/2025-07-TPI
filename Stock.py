@@ -13,6 +13,7 @@ class Producto(BaseModel):
     precio: Dinero
     pesoKg: float = Field(ge=0)
     stock: int = Field(ge=0)
+    imagen_url: Optional[str] = None
 
 # —— Booking (reservas) ——
 class ItemReserva(BaseModel):
