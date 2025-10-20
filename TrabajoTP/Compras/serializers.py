@@ -46,34 +46,7 @@ class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(required=True)
     password = serializers.CharField(write_only=True, required=True)
 
-    class Meta:
-        model = User
-        # Campos que pediremos en el JSON de la API
-        fields = ('username', 'password', 'password2', 'email', 'first_name', 'last_name')
-        extra_kwargs = {
-            'password': {'write_only': True}, # No queremos que la contraseña se pueda leer
-            'username': {'required': True}
-        }
+   
 
-    def validate(self, attrs):
-        # Validamos que las dos contraseñas coincidan
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
-        
-        # Validamos que la contraseña sea segura
-        validate_password(attrs['password'])
-
-        return attrs
-
-    def create(self, validated_data):
-        # Creamos el usuario de forma segura (con la contraseña encriptada)
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name']
-        )
-        # set_password encripta la contraseña
-        user.set_password(validated_data['password']) 
-        user.save()
-        return user
+    
+   

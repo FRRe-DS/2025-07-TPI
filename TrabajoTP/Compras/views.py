@@ -1,10 +1,12 @@
 from django.shortcuts import render
 from django.http import HttpResponse
+from rest_framework.decorators import api_view
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token 
 from django.contrib.auth.models import User
+from rest_framework.views import APIView
 from .serializers import RegisterSerializer, LoginSerializer
-from rest_framework.decorators import api_view
+
 from rest_framework.response import Response
 from rest_framework import status, generics
 import httpx
@@ -20,7 +22,10 @@ def Inicio(request):
 
 @api_view(['GET']) # <-- Esto le dice a DRF que esta vista es una API
 def lista_productos(request):
-    stock_url = "https://api.stock.com/v1/api/stock/product"
+    stock_url = "http://127.0.0.1:8082/productos"
+
+    print(f"--- Intentando llamar a: {stock_url} ---")
+    
     try:
         # 1. Usamos httpx para "llamar" al OTRO servicio
         response = httpx.get(stock_url)
@@ -39,49 +44,53 @@ def lista_productos(request):
         return Response(error_msg, status=502)
 
 
-    # 2. Esta es la vista para registrar un usuario (POST /api/auth/register)
-@api_view(['POST'])
-def register_view(request):
-    if request.method == 'POST':
-        # 1. Pasa el JSON del request al serializador
-        serializer = RegisterSerializer(data=request.data)
-        
-        # 2. Valida los datos (usando el método .validate() del serializador)
-        if serializer.is_valid():
-            # 3. Si es válido, llama al método .create() del serializador y guarda el usuario
-            user = serializer.save()
-            return Response({"message": f"Usuario '{user.username}' registrado exitosamente"}, status=status.HTTP_201_CREATED)
-        else:
-            # 4. Si no es válido, devuelve los errores
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
+class RegisterView(generics.CreateAPIView):
+    """
+    Vista de API para registrar un nuevo usuario.
+    Al ser una CreateAPIView, automáticamente maneja POST para crear
+    y GET para mostrar un formulario en la API Navegable.
+    """
+    queryset = User.objects.all()
+    serializer_class = RegisterSerializer
 
-@api_view(['POST'])
-def login_view(request):
-    if request.method == 'POST':
-        # 1. Pasamos los datos al serializador
+
+class LoginView(APIView):
+    """
+    Vista de API para el login de usuarios.
+    """
+    # Le dice a la API Navegable qué formulario mostrar
+    serializer_class = LoginSerializer 
+
+    def get(self, request, *args, **kwargs):
+        """
+        Maneja GET para mostrar el formulario de login en la API Navegable.
+        (Esto arregla el error "GET no permitido" de la Imagen 2)
+        """
+        # Simplemente devolvemos una respuesta vacía, 
+        # DRF usará 'serializer_class' para renderizar el formulario.
+        return Response()
+
+    def post(self, request, *args, **kwargs):
+        """
+        Maneja POST para autenticar al usuario.
+        """
+
         serializer = LoginSerializer(data=request.data)
-
+        
         if not serializer.is_valid():
-            # 2. Si los datos no son válidos (ej. falta 'username'), devuelve error
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        # 3. Datos validados, los extraemos
+        
         username = serializer.validated_data['username']
         password = serializer.validated_data['password']
-
-        # 4. ¡La autenticación!
+        
         user = authenticate(request, username=username, password=password)
-
+        
         if user is not None:
-            # 5. Si el usuario es válido, creamos o recuperamos su token
             token, created = Token.objects.get_or_create(user=user)
-
-            # 6. Devolvemos el token
             return Response({
                 'token': token.key,
                 'user_id': user.pk,
                 'email': user.email
             }, status=status.HTTP_200_OK)
         else:
-            # 7. Si el usuario no es válido (contraseña o user incorrecto)
             return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
