@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from typing import Dict
-from Stock import Producto, Dinero, BookingRequest, Booking
+from stock import Producto, Dinero, BookingRequest, Booking
 
 app = FastAPI(title="Stock API", version="1.0.0")
 

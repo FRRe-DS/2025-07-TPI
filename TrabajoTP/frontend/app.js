@@ -33,23 +33,21 @@ async function cargarProductos() {
             return;
         }
 
+        // Busca la plantilla en el HTML
+        const template = document.getElementById('product-card-template');
+
         // Dibuja cada producto en el HTML
         productos.forEach(producto => {
             console.log("Datos del producto:", producto);
-            const card = document.createElement('article');
-            card.className = 'product__card'; //
             
-            // Usamos la plantilla de tu index.html
-            card.innerHTML = `
-                <div class="product__img-container">
-                    <img class="product__img" src="${producto.imagen_url || 'https://via.placeholder.com/150'}" alt="${producto.nombre}">
-                </div>
-                <div class="product__info">
-                    <h3>${producto.nombre}</h3>
-                    <p>$${producto.precio.amount}</p>
-                </div>
-                <button class="btn btn-add">Añadir al carrito</button>
-            `;
+            // Clona el contenido de la plantilla
+            const card = template.content.cloneNode(true);
+            
+            // Rellena los datos del producto
+            card.querySelector('.product__img').src = producto.imagen_url || 'https://via.placeholder.com/150';
+            card.querySelector('.product__img').alt = producto.nombre;
+            card.querySelector('.product__name').textContent = producto.nombre;
+            card.querySelector('.product__price').textContent = `$${producto.precio.amount}`;
             
             container.appendChild(card);
         });

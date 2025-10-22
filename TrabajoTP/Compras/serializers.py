@@ -43,7 +43,7 @@ class LoginSerializer(serializers.Serializer):
     Serializador para el login de usuarios.
     No usa ModelSerializer porque no está atado a un modelo.
     """
-    username = serializers.CharField(required=True)
+    email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)
 
    

@@ -53,6 +53,42 @@ def lista_productos(request):
         return Response(error_msg, status=502) # 502 Bad Gateway
 
 
+class ProductDetailView(APIView):
+    """
+    Vista de API para obtener los detalles de un producto específico desde el servicio de Stock.
+    Corresponde a GET /api/product/{id}
+    """
+    def get(self, request, pk, *args, **kwargs):
+        # La URL del mock de Stock para un producto específico
+        stock_url = f"http://127.0.0.1:8001/api/product/{pk}"
+        
+        print(f"--- [Django] Intentando llamar a: {stock_url} para producto {pk} ---")
+
+        try:
+            response = httpx.get(stock_url)
+            response.raise_for_status() # Lanza un error si la API de Stock falla
+            
+            producto_json = response.json()
+            print(f"--- [Django] ¡Llamada exitosa! Producto {pk} recibido de Stock. ---")
+            
+            return Response(producto_json)
+            
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return Response(
+                    {"error": "Producto no encontrado", "code": "PRODUCT_NOT_FOUND"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            print(f"--- [Django] ERROR: El mock de Stock devolvió: {exc.response.status_code} ---")
+            return Response(
+                {"error": f"Error al conectar con Stock: {exc.response.status_code}", "code": "STOCK_SERVICE_ERROR"},
+                status=status.HTTP_502_BAD_GATEWAY # O 500, dependiendo del error específico
+            )
+        except httpx.RequestError as exc:
+            print(f"--- [Django] ERROR: No se pudo conectar al mock de Stock para producto {pk}. ¿Está apagado? ---")
+            error_msg = {"error": "El servicio de Stock no está disponible.", "code": "STOCK_SERVICE_UNAVAILABLE"}
+            return Response(error_msg, status=status.HTTP_502_BAD_GATEWAY)
+
 class RegisterView(generics.CreateAPIView):
     """
     Vista de API para registrar un nuevo usuario.
@@ -89,10 +125,18 @@ class LoginView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        username = serializer.validated_data['username']
+        email = serializer.validated_data['email']
         password = serializer.validated_data['password']
         
-        user = authenticate(request, username=username, password=password)
+        # Buscamos al usuario por su email
+        try:
+            user_obj = User.objects.get(email=email)
+        except User.DoesNotExist:
+            user_obj = None
+
+        if user_obj:
+            # Usamos el username encontrado para autenticar
+            user = authenticate(request, username=user_obj.username, password=password)
         
         if user is not None:
             token, created = Token.objects.get_or_create(user=user)
