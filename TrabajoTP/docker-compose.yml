@@ -1,28 +1,15 @@
 services:
   db:
     image: postgres:15
+    container_name: mi_postgres_db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: portal_db
+      POSTGRES_USER: portal_user
+      POSTGRES_PASSWORD: portal_password
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-
-  web:
-    build: .
-    command: >
-      sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      - db
 
 volumes:
   pgdata:
