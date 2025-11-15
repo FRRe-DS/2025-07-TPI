@@ -3,9 +3,10 @@ services:
     image: postgres:15
     container_name: mi_postgres_db
     environment:
-      POSTGRES_DB: portal_db
-      POSTGRES_USER: portal_user
-      POSTGRES_PASSWORD: portal_password
+      #Docker lee del .env
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
     ports:
       - "5432:5432"
     volumes:

@@ -76,15 +76,18 @@ WSGI_APPLICATION = 'TrabajoTP.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 import os
+from dotenv import load_dotenv #carga las variables del archivo .env
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'portal_db',
-        'USER': 'portal_user',
-        'PASSWORD': 'portal_password', 
-        'HOST': '127.0.0.1',           
-        'PORT': '5432',
+        # Ahora leemos del .env. 
+        # El segundo valor es un "por defecto" por si falla la lectura.
+        'NAME': os.getenv('DB_NAME', 'portal_db'),
+        'USER': os.getenv('DB_USER', 'portal_user'),
+        'PASSWORD': os.getenv('DB_PASS', 'portal_password'),
+        'HOST': os.getenv('DB_HOST', '127.0.0.1'), 
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
