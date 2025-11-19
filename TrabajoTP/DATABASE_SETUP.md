@@ -1,61 +1,63 @@
-# **📘 Guía Rápida: Base de Datos y Entorno Docker**
+# Guía de Configuración - Portal de Compras
 
-Esta guía explica cómo levantar el proyecto y la base de datos PostgreSQL en tu computadora local utilizando Docker.
+## Configuración Inicial
 
-### **1\. Requisitos Previos**
+1. Crear archivo `.env` en la raíz del proyecto con:
 
-* Tener instalado **Docker Desktop** (y que esté abierto/corriendo).  
-* Tener **Git** instalado.
+DB_NAME=portal_db
+DB_USER=portal_user
+DB_PASS=portal_password
+DB_HOST=db
+DB_PORT=5432
+KEYCLOAK_SERVER_URL=http://localhost:8080
+KEYCLOAK_REALM=ds-2025-realm
+KEYCLOAK_CLIENT_ID=grupo-07
+KEYCLOAK_CLIENT_SECRET=tdSnJM8CsPPl6dJW4Tq6k9JWnSqndkfH
 
-### **2\. Configuración Inicial (Solo la primera vez)**
+## Levantar el Proyecto
 
-Como las contraseñas no se suben a Git por seguridad, cada uno debe crear su propio archivo de configuración.
+Ejecutar: docker-compose up -d --build
 
-1. Crea un archivo llamado `.env` en la carpeta raíz del proyecto (al lado de `docker-compose.yml`).  
-2. Copia y pega el siguiente contenido dentro:
+Esperar 2-3 minutos para que Keycloak inicialice completamente.
 
-Fragmento de código  
-\# Configuración de Base de Datos  
-DB\_NAME=portal\_db  
-DB\_USER=portal\_user  
-DB\_PASS=portal\_password  
-DB\_HOST=db  
-DB\_PORT=5432
+## Configuración de Base de Datos
 
-**Nota:** `DB_HOST=db` es vital para que Docker funcione. Si corres Django fuera de Docker, cambia eso por `127.0.0.1`.
+Ejecutar: docker-compose exec web python manage.py migrate
 
-### **3\. Levantar el Proyecto**
+## Configuración de Keycloak
 
-Abre la terminal en la carpeta del proyecto y ejecuta:
+1. Acceder a http://localhost:8080
+   - Usuario: admin
+   - Contraseña: ds2025
 
-Bash  
-docker-compose up \-d \--build
+2. Verificar que exista el Realm "ds-2025-realm"
 
-* Esto descarga PostgreSQL, instala las librerías de Python y levanta el servidor.  
-* Espera a que termine. Si todo salió bien, verás los contenedores corriendo en Docker Desktop.
+3. Configurar el Cliente "grupo-07":
+   - Access Type: public
+   - Valid Redirect URIs: http://localhost:8000/social-auth/complete/keycloak/*
+   - Web Origins: http://localhost:8000
 
-### **4\. Preparar la Base de Datos (¡Importante\!)**
+4. En Realm Settings → Login habilitar:
+   - User registration
+   - Forgot password
+   - Remember me
 
-Cuando descargas el proyecto, **la base de datos viene vacía** (sin tablas). Debes ejecutar estos comandos una sola vez para crear la estructura:
+## Uso de la Aplicación
 
-**A. Crear las tablas (Migraciones):**
+1. Acceder a http://localhost:8000
+2. Click en "Login" → "Iniciar Sesión con Keycloak"
+3. Registrar nuevo usuario o iniciar sesión
+4. Navegar productos y utilizar el carrito de compras
 
-Bash  
-docker-compose exec web python manage.py migrate
+## URLs Importantes
 
-**B. Crear un usuario administrador (Para entrar al panel):**
+- Aplicación: http://localhost:8000
+- Admin Keycloak: http://localhost:8080
+- API Carrito: http://localhost:8000/api/shopcart
 
-Bash  
-docker-compose exec web python manage.py createsuperuser
+## Comandos de Mantenimiento
 
-*(Sigue las instrucciones para poner usuario y contraseña)*.
-
-### **5\. ¿Cómo trabajar día a día?**
-
-* **Para iniciar todo:** `docker-compose up -d`  
-* **Para detener todo:** `docker-compose down`  
-* **Si instalaste una librería nueva:** `docker-compose up -d --build`  
-* **Si hiciste cambios en los modelos (BD):**  
-  1. `docker-compose exec web python manage.py makemigrations`  
-  2. `docker-compose exec web python manage.py migrate`
-
+Iniciar servicios: docker-compose up -d
+Detener servicios: docker-compose down
+Reiniciar Keycloak: docker-compose restart keycloak
+Ver logs: docker-compose logs -f web

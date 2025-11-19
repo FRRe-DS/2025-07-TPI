@@ -1,9 +1,11 @@
+version: '3.8'
+
 services:
+  # PostgreSQL de tu Django (usa el mismo para todo)
   db:
     image: postgres:15
     container_name: mi_postgres_db
     environment:
-      #Docker lee del .env
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
@@ -11,6 +13,56 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  # Keycloak del profesor (usa MISMA DB para simplificar)
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.6
+    container_name: keycloak_server
+    command: start --import-realm
+    environment:
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT_BACKCHANNEL: false
+      KC_HTTP_ENABLED: true
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HEALTH_ENABLED: true
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ds2025
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db/${DB_NAME}
+      KC_DB_USERNAME: ${DB_USER}
+      KC_DB_PASSWORD: ${DB_PASS}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./realm-config:/opt/keycloak/data/import
+    depends_on:
+      - db
+
+  # Tu aplicación Django
+  web:
+    build: .
+    container_name: mi_django_app
+    command: >
+      sh -c "sleep 30 && 
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - KEYCLOAK_SERVER_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=ds-2025-realm
+      - KEYCLOAK_CLIENT_ID=grupo-07
+      - KEYCLOAK_CLIENT_SECRET=tdSnJM8CsPPl6dJW4Tq6k9JWnSqndkfH
+    depends_on:
+      - db
+      - keycloak
 
 volumes:
   pgdata:

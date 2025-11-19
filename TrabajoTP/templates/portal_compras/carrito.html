@@ -131,8 +131,7 @@
     <script>
         // Obtener token de autenticación
         function getAuthToken() {
-            // Intentar obtener de localStorage primero, luego de la sesión
-            return localStorage.getItem('authToken') || '{{ request.session.access_token|default:"" }}';
+          return '{{ request.session.access_token|default:"" }}' || localStorage.getItem('authToken');
         }
 
         async function vaciarCarrito() {

@@ -190,6 +190,42 @@
                 console.log('Error cargando carrito');
             }
         }
+        function getAuthToken() {
+            // Intentar obtener de localStorage, session, etc.
+            return localStorage.getItem('authToken') || '';
+        }
+
+        async function agregarAlCarrito(productId) {
+            const token = getAuthToken();
+            
+            if (!token) {
+                alert('❌ Debes iniciar sesión para agregar productos al carrito');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/shopcart/items', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,  // ⬅️ IMPORTANTE
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        productId: productId,
+                        quantity: 1
+                    })
+                });
+                
+                if (response.ok) {
+                    // Éxito
+                } else {
+                    // Error
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', actualizarContadorCarrito);
     </script>
