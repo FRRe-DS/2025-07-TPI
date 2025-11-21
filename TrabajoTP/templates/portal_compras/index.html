@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Compras</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'portal_compras/css/css.css' %}">
+</head>
+<body>
+    <header>
+        <div class="header__logo-container">
+            <img class="header__logo" src="https://imgs.search.brave.com/xXu0HqkEYT9th61dMNlPQQL0e4y15tfFDRslLHKcvJY/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pLnJl/ZGQuaXQvY2Z3eXNz/OTA1bWtjMS5wbmc" alt="Logo">
+        </div>
+        
+        <nav class="navbar">
+            <ul class="list">
+                <li class="header__nav-item"><a class="btn" href="{% url 'index' %}">Home</a></li>
+                <li class="header__nav-item"><a class="btn" href="{% url 'productos' %}">Productos</a></li>
+                <li class="header__nav-item">
+                    <a class="btn" href="{% url 'shopcart' %}">
+                        Carrito 
+                        <span id="carrito-badge" style="background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; display: none;">0</span>
+                    </a>
+                </li>
+                {% if user %}
+                <li class="header__nav-item"><a class="btn" href="{% url 'ordenes' %}">Mis Pedidos</a></li>
+                {% endif %}
+            </ul>
+            <div class="header__buttons-container">
+                {% if user %}
+                    <span style="color: white; margin-right: 1rem;">Hola, {{ user.firstName }}</span>
+                    <a href="{% url 'logout' %}" class="btn btn--login">Cerrar Sesión</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn--login">Log In</a>
+                    <a href="{% url 'registro' %}" class="btn btn--Sign_Up">Sign Up</a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+    
+    <main>
+        <section class="catalog">
+            <div class="product-container">
+                {% if productos %}
+                    {% for producto in productos %}
+                    <article class="product__card">
+                        <div class="product__img-container">
+                            <img class="product__img" 
+                                 src="https://via.placeholder.com/300x200/4488ee/ffffff?text=Producto+{{ producto.id }}" 
+                                 alt="{{ producto.name }}">
+                        </div>
+                        
+                        <div class="product__info">
+                            <h3>{{ producto.name }}</h3>
+                            <p>{{ producto.description|default:"Descripción no disponible" }}</p>
+                            <p><strong>${{ producto.price }}</strong></p>
+                            <p>Stock: {{ producto.stock }}</p>
+                            {% if producto.category %}
+                                <p><small>Categoría: {{ producto.category }}</small></p>
+                            {% endif %}
+                        </div>
+                        
+                        {% if user %}
+                            <button class="btn-add" onclick="agregarAlCarrito({{ producto.id }})">
+                                🛒 Añadir al carrito
+                            </button>
+                        {% else %}
+                            <button class="btn-add" disabled title="Inicia sesión para comprar">
+                                🔒 Inicia sesión para comprar
+                            </button>
+                        {% endif %}
+                    </article>
+                    {% endfor %}
+                {% else %}
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
+                        <h3>No hay productos disponibles</h3>
+                        <p>No se pudieron cargar los productos desde el servicio Stock.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Portal de Compras - Universidad Tecnológica Nacional</p>
+    </footer>
+
+    <script>
+    // Obtener token del localStorage o session
+    function getAuthToken() {
+        return localStorage.getItem('authToken') || '{{ request.session.access_token|default:"" }}';
+    }
+
+    async function agregarAlCarrito(productId) {
+        const token = getAuthToken();
+        
+        if (!token) {
+            alert('❌ Debes iniciar sesión para agregar productos al carrito');
+            window.location.href = '{% url "login" %}';
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/shopcart/items', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    productId: productId,
+                    quantity: 1
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('✅ Producto agregado al carrito!');
+                actualizarContadorCarrito();
+            } else {
+                alert('❌ Error: ' + (result.error || 'No se pudo agregar al carrito'));
+            }
+        } catch (error) {
+            alert('❌ Error de conexión');
+        }
+    }
+    async function actualizarContadorCarrito() {
+        const token = getAuthToken();
+        
+        try {
+            const response = await fetch('/api/shopcart', {
+                headers: {
+                    'Authorization': `Bearer ${token}`  // ← AGREGAR ESTA LÍNEA
+                }
+            });
+            
+            if (response.ok) {
+                const carrito = await response.json();
+                const totalItems = carrito.items.reduce((total, item) => total + item.quantity, 0);
+                
+                const badge = document.getElementById('carrito-badge');
+                if (badge) {
+                    badge.textContent = totalItems;
+                    badge.style.display = totalItems > 0 ? 'inline' : 'none';
+                }
+            }
+        } catch (error) {
+            console.log('Error cargando carrito');
+        }
+    }
+
+    // Guardar token al hacer login exitoso
+    function guardarToken(token) {
+        localStorage.setItem('authToken', token);
+    }
+
+    document.addEventListener('DOMContentLoaded', actualizarContadorCarrito);
+</script>
+</body>
+</html>
