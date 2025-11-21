@@ -80,99 +80,46 @@ def registro_view(request):
 def lista_productos(request):
     """Vista para lista de productos con búsqueda"""
     productos = []
-    query = request.GET.get('q', '')  # Término de búsqueda
-    categoria = request.GET.get('categoria', '')  # Filtro por categoría
-    
+    query = request.GET.get('q', '')
+    categoria = request.GET.get('categoria', '')
+
     try:
-        # Podríamos conectar con el servicio Stock aquí
-        # Por ahora usamos el mismo mock del carrito
-        productos_mock = [
-            {
-                'id': 1,
-                'name': 'Notebook Gamer', 
-                'description': 'Laptop para gaming de alto rendimiento',
-                'price': 1500.00,
-                'stock': 10,
-                'category': 'Tecnología'
-            },
-            {
-                'id': 2,
-                'name': 'Mouse Inalámbrico',
-                'description': 'Mouse ergonómico con sensor óptico',
-                'price': 45.99,
-                'stock': 25,
-                'category': 'Accesorios'
-            },
-            {
-                'id': 3, 
-                'name': 'Teclado Mecánico',
-                'description': 'Teclado gaming con switches mecánicos',
-                'price': 89.99,
-                'stock': 15,
-                'category': 'Accesorios'
-            },
-            {
-                'id': 4,
-                'name': 'Monitor 24"',
-                'description': 'Monitor Full HD para trabajo y gaming',
-                'price': 299.99,
-                'stock': 8,
-                'category': 'Tecnología'
-            },
-            {
-                'id': 5,
-                'name': 'Auriculares Bluetooth',
-                'description': 'Auriculares inalámbricos con cancelación de ruido',
-                'price': 129.99,
-                'stock': 20,
-                'category': 'Audio'
-            },
-            {
-                'id': 6,
-                'name': 'Tablet 10"',
-                'description': 'Tablet Android con pantalla Full HD',
-                'price': 199.99,
-                'stock': 12,
-                'category': 'Tecnología'
-            },
-            {
-                'id': 7,
-                'name': 'Smartwatch',
-                'description': 'Reloj inteligente con monitor de actividad',
-                'price': 79.99,
-                'stock': 30,
-                'category': 'Wearables'
-            },
-            {
-                'id': 8,
-                'name': 'Cargador Rápido',
-                'description': 'Cargador USB-C de 65W',
-                'price': 29.99,
-                'stock': 50,
-                'category': 'Accesorios'
-            }
-        ]
-        
-        # Aplicar filtros
-        productos_filtrados = productos_mock
-        
-        if query:
-            productos_filtrados = [p for p in productos_filtrados 
-                                 if query.lower() in p['name'].lower() 
-                                 or query.lower() in p['description'].lower()]
-        
-        if categoria:
-            productos_filtrados = [p for p in productos_filtrados 
-                                 if p['category'].lower() == categoria.lower()]
-        
-        productos = productos_filtrados
-        
+        # 🔥 Llamada al microservicio Stock
+        response = requests.get("http://localhost:8081/v1/productos", timeout=5)
+        if response.status_code == 200:
+            productos = response.json()
+        else:
+            print(f"Error obteniendo productos: {response.status_code} - {response.text}")
     except Exception as e:
-        print(f"Error cargando productos: {e}")
-    
-    # Obtener categorías únicas para el filtro
-    categorias = sorted(list(set([p['category'] for p in productos]))) if productos else []
-    
+        print(f"Error conectando al servicio Stock: {e}")
+        # Datos de fallback opcionales
+        productos = [
+            {'id':1,'name':'Producto Demo','description':'Demo','price':10.0,'stock':5,'category':'Demo'}
+        ]
+
+    # -------------------------------
+    # Filtros locales
+    # -------------------------------
+    if productos:
+        if query:
+            productos = [
+                p for p in productos
+                if query.lower() in p.get('name','').lower() or query.lower() in p.get('description','').lower()
+            ]
+        if categoria:
+            productos = [
+                p for p in productos
+                if p.get('category','').lower() == categoria.lower()
+            ]
+
+    # -------------------------------
+    # Categorías únicas
+    # -------------------------------
+    categorias = sorted(list(set([p.get('category','') for p in productos]))) if productos else []
+
+    # -------------------------------
+    # Render
+    # -------------------------------
     return render(request, 'portal_compras/productos.html', {
         'productos': productos,
         'user': request.user if request.user.is_authenticated else None,
