@@ -1,0 +1,560 @@
+<!-- templates/portal_compras/carrito.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrito - Portal de Compras</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'portal_compras/css/css.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+   <header>
+    <div class="header__logo-container">
+        <img class="header__logo" src="https://imgs.search.brave.com/xXu0HqkEYT9th61dMNlPQQL0e4y15tfFDRslLHKcvJY/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pLnJl/ZGQuaXQvY2Z3eXNz/OTA1bWtjMS5wbmc" alt="Logo">
+    </div>
+    
+    <nav class="navbar">
+        <ul class="list">
+            <li class="header__nav-item"><a class="btn" href="{% url 'index' %}">Home</a></li>
+            <li class="header__nav-item"><a class="btn" href="{% url 'productos' %}">Productos</a></li>
+            <li class="header__nav-item">
+                <a class="btn" href="{% url 'shopcart' %}">
+                    Carrito 
+                    <span id="carrito-badge" style="background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; display: none;">0</span>
+                </a>
+            </li>
+            {% if user %}
+            <li class="header__nav-item"><a class="btn" href="{% url 'ordenes' %}">Mis Pedidos</a></li>
+            {% endif %}
+        </ul>
+        <div class="header__buttons-container">
+            {% if user %}
+                <span style="color: white; margin-right: 1rem;">Hola, {{ user.firstName }}</span>
+                <a href="{% url 'logout' %}" class="btn btn--login">Cerrar Sesión</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn--login">Log In</a>
+                <a href="{% url 'registro' %}" class="btn btn--Sign_Up">Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
+</header>
+
+    <main>
+        <div class="carrito-container">
+            <h2>🛒 Tu Carrito de Compras</h2>
+            
+            {% if carrito.items %}
+                {% for item in carrito.items %}
+                <div class="carrito-item" data-product-id="{{ item.productId }}">
+                    <div style="flex: 1;">
+                        <h4>{{ item.product.name }}</h4>
+                        <p>{{ item.product.description }}</p>
+                        <small>Cantidad: {{ item.quantity }}</small>
+                    </div>
+                    <div style="text-align: right;">
+                        <p><strong>${{ item.product.price }} c/u</strong></p>
+                        <p>Subtotal: {{ item.quantity }} x ${{ item.product.price|floatformat:2 }} = <strong>${{ item.subtotal|floatformat:2 }}</strong></p>
+                        <button class="btn btn--Sign_Up" onclick="removerDelCarrito({{ item.productId }}, '{{ item.product.name }}')">
+                            Eliminar
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <div class="carrito-total">
+                    Total: ${{ carrito.total|floatformat:2 }}
+                </div>
+                
+                <div style="text-align: center; margin-top: 2rem;">
+                    <button class="btn btn-checkout" onclick="procederCheckout()">
+                        🚀 Proceder al Checkout
+                    </button>
+                    <button class="btn btn--login" onclick="vaciarCarrito()" style="margin-left: 1rem;">
+                        🗑️ Vaciar Carrito
+                    </button>
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 2rem;">
+                    <h3>😔 Tu carrito está vacío</h3>
+                    <p>Agrega algunos productos para continuar.</p>
+                    <a href="{% url 'index' %}" class="btn">Seguir Comprando</a>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+    <div id="checkoutModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>🚀 Finalizar Compra</h3>
+            
+            <form id="checkoutForm">
+                <div class="form-group">
+                    <label for="deliveryAddress">📦 Dirección de Entrega:</label>
+                    <textarea 
+                        id="deliveryAddress" 
+                        name="deliveryAddress" 
+                        rows="3" 
+                        placeholder="Ingresa tu dirección completa..."
+                        required
+                    ></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="paymentMethod">💳 Método de Pago:</label>
+                    <select id="paymentMethod" name="paymentMethod" required>
+                        <option value="credit_card">Tarjeta de Crédito</option>
+                        <option value="debit_card">Tarjeta de Débito</option>
+                        <option value="paypal">PayPal</option>
+                        <option value="cash">Efectivo</option>
+                    </select>
+                </div>
+                
+                <div class="resumen-compra">
+                    <h4>Resumen de Compra</h4>
+                    <div id="checkoutSummary">
+                        <!-- Aquí se cargará el resumen dinámicamente -->
+                    </div>
+                    <div class="total-checkout">
+                        <strong>Total: ${{ carrito.total|floatformat:2 }}</strong>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+                    <button type="submit" class="btn-confirmar">Confirmar Compra</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        // Obtener token de autenticación
+        function getAuthToken() {
+          return '{{ request.session.access_token|default:"" }}' || localStorage.getItem('authToken');
+        }
+
+        async function vaciarCarrito() {
+            const result = await Swal.fire({
+                title: '¿Vaciar carrito?',
+                text: '¿Estás seguro de que quieres vaciar todo el carrito?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sí, vaciar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    const token = getAuthToken();
+                    const response = await fetch('/api/shopcart/clear', {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    });
+
+                    if (response.ok) {
+                        await Swal.fire({
+                            title: '✅ Carrito vaciado',
+                            text: 'Todos los productos han sido eliminados',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        
+                        // Recargar página
+                        location.reload();
+                    } else {
+                        const result = await response.json();
+                        await Swal.fire({
+                            title: '❌ Error',
+                            text: result.error || 'No se pudo vaciar el carrito',
+                            icon: 'error'
+                        });
+                    }
+                } catch (error) {
+                    await Swal.fire({
+                        title: '❌ Error de conexión',
+                        text: 'Por favor, intenta nuevamente',
+                        icon: 'error'
+                    });
+                }
+            }
+        }
+        async function procederCheckout() {
+            const token = getAuthToken();
+            
+            if (!token) {
+                await Swal.fire({
+                    title: '❌ Inicia sesión',
+                    text: 'Debes iniciar sesión para realizar el checkout',
+                    icon: 'warning',
+                    confirmButtonText: 'Entendido'
+                });
+                return;
+            }
+
+            // Pedir dirección con SweetAlert
+            const { value: deliveryAddress } = await Swal.fire({
+                title: '📦 Dirección de entrega',
+                input: 'textarea',
+                inputLabel: 'Ingresa tu dirección completa:',
+                inputPlaceholder: 'Calle, número, ciudad, código postal...',
+                inputAttributes: {
+                    'aria-label': 'Ingresa tu dirección completa'
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Continuar',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return '¡Necesitas ingresar una dirección!';
+                    }
+                }
+            });
+
+            if (!deliveryAddress) return;
+
+            // Confirmar compra
+            const result = await Swal.fire({
+                title: '¿Confirmar compra?',
+                html: `
+                    <div style="text-align: left;">
+                        <p><strong>Dirección:</strong> ${deliveryAddress}</p>
+                        <p><strong>Total:</strong> ${{ carrito.total|floatformat:2 }}</p>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: '✅ Sí, confirmar',
+                cancelButtonText: '❌ Cancelar'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    // Mostrar loading
+                    Swal.fire({
+                        title: '⏳ Procesando...',
+                        text: 'Estamos confirmando tu pedido',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    const response = await fetch('/api/shopcart/checkout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            deliveryAddress: deliveryAddress,
+                            paymentMethod: 'credit_card'
+                        })
+                    });
+
+                    // Cerrar loading
+                    Swal.close();
+
+                    if (response.ok) {
+                        const order = await response.json();
+                        
+                        await Swal.fire({
+                            title: '🎉 ¡Pedido Confirmado!',
+                            html: `
+                                <div style="text-align: left;">
+                                    <p><strong>Orden #${order.id}</strong></p>
+                                    <p><strong>Total:</strong> $${order.total}</p>
+                                    <p><strong>Estado:</strong> ${order.status}</p>
+                                    <p><strong>Dirección:</strong> ${deliveryAddress}</p>
+                                </div>
+                            `,
+                            icon: 'success',
+                            confirmButtonText: 'Ver mis pedidos',
+                            confirmButtonColor: '#6366f1'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = '{% url "ordenes" %}';
+                            }
+                        });
+                        
+                    } else {
+                        const errorData = await response.json();
+                        let errorMessage = 'No se pudo procesar el pedido';
+                        
+                        if (errorData.error === 'EMPTY_CART') {
+                            errorMessage = 'Tu carrito está vacío';
+                        } else if (errorData.error) {
+                            errorMessage = errorData.error;
+                        }
+                        
+                        await Swal.fire({
+                            title: '❌ Error',
+                            text: errorMessage,
+                            icon: 'error',
+                            confirmButtonText: 'Entendido'
+                        });
+                    }
+                } catch (error) {
+                    Swal.close();
+                    await Swal.fire({
+                        title: '❌ Error de conexión',
+                        text: 'Por favor, verifica tu conexión e intenta nuevamente',
+                        icon: 'error',
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+            }
+        }
+
+        function cerrarModal() {
+            const modal = document.getElementById('checkoutModal');
+            modal.style.display = 'none';
+        }
+
+        function cargarResumenCheckout() {
+            const summaryDiv = document.getElementById('checkoutSummary');
+            
+            // Usar los datos del carrito que ya están en el template
+            {% if carrito.items %}
+                let html = '';
+                {% for item in carrito.items %}
+                html += `
+                    <div class="resumen-item">
+                        <span>{{ item.product.name }} x{{ item.quantity }}</span>
+                        <span>${{ item.subtotal|floatformat:2 }}</span>
+                    </div>
+                `;
+                {% endfor %}
+                summaryDiv.innerHTML = html;
+            {% endif %}
+        }
+
+        // Cerrar modal al hacer click fuera del contenido
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('checkoutModal');
+            const closeBtn = document.querySelector('.close-modal');
+            
+            if (closeBtn) {
+                closeBtn.addEventListener('click', cerrarModal);
+            }
+            
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    cerrarModal();
+                }
+            });
+        });
+
+        // Manejar el envío del formulario
+        document.getElementById('checkoutForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const token = getAuthToken();
+            const formData = new FormData(this);
+            
+            const checkoutData = {
+                deliveryAddress: formData.get('deliveryAddress'),
+                paymentMethod: formData.get('paymentMethod')
+            };
+            
+            // Validar dirección
+            if (!checkoutData.deliveryAddress.trim()) {
+                alert('❌ Por favor ingresa una dirección de entrega válida');
+                return;
+            }
+
+            try {
+                // Mostrar loading
+                const confirmBtn = document.querySelector('.btn-confirmar');
+                const originalText = confirmBtn.textContent;
+                confirmBtn.textContent = '⏳ Procesando...';
+                confirmBtn.disabled = true;
+
+                const response = await fetch('/api/shopcart/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify(checkoutData)
+                });
+
+                if (response.ok) {
+                    const order = await response.json();
+                    cerrarModal();
+                    
+                    alert(`✅ ¡Orden #${order.id} creada exitosamente!\n\nTotal: $${order.total}\nEstado: ${order.status}`);
+                    
+                    // Redirigir al historial de órdenes
+                    window.location.href = '{% url "ordenes" %}';
+                    
+                } else {
+                    const errorData = await response.json();
+                    let errorMessage = 'No se pudo procesar el pedido';
+                    
+                    if (errorData.error === 'EMPTY_CART') {
+                        errorMessage = '❌ Tu carrito está vacío';
+                    } else if (errorData.error) {
+                        errorMessage = `❌ ${errorData.error}`;
+                    }
+                    
+                    alert(errorMessage);
+                }
+            } catch (error) {
+                console.error('Error en checkout:', error);
+                alert('❌ Error de conexión. Por favor, intenta nuevamente.');
+            } finally {
+                // Restaurar botón
+                const confirmBtn = document.querySelector('.btn-confirmar');
+                if (confirmBtn) {
+                    confirmBtn.textContent = 'Confirmar Compra';
+                    confirmBtn.disabled = false;
+                }
+            }
+        });
+
+        async function actualizarContadorCarrito() {
+            const token = getAuthToken();
+            if (!token) return;
+            
+            try {
+                const response = await fetch('/api/shopcart', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const carrito = await response.json();
+                    const totalItems = carrito.items.reduce((total, item) => total + item.quantity, 0);
+                    
+                    const badge = document.getElementById('carrito-badge');
+                    if (badge) {
+                        badge.textContent = totalItems;
+                        badge.style.display = totalItems > 0 ? 'inline' : 'none';
+                    }
+                }
+            } catch (error) {
+                console.log('Error cargando carrito:', error);
+            }
+        }
+        async function removerDelCarrito(productId, productName) {
+            const result = await Swal.fire({
+                title: '¿Eliminar producto?',
+                text: `¿Estás seguro de que quieres eliminar "${productName}" del carrito?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    const token = getAuthToken();
+                    const response = await fetch(`/api/shopcart/items/${productId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    });
+
+                    if (response.ok) {
+                        await Swal.fire({
+                            title: '¡Eliminado!',
+                            text: 'Producto eliminado del carrito',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        
+                        location.reload();
+                    } else {
+                        await Swal.fire('Error', 'No se pudo eliminar el producto', 'error');
+                    }
+                } catch (error) {
+                    await Swal.fire('Error', 'Error de conexión', 'error');
+                }
+            }
+        }
+        async function actualizarVistaCarrito() {
+            const token = getAuthToken();
+            try {
+                const response = await fetch('/api/shopcart', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const carrito = await response.json();
+                    
+                    // Actualizar contador en el badge
+                    const totalItems = carrito.items.reduce((total, item) => total + item.quantity, 0);
+                    const badge = document.getElementById('carrito-badge');
+                    if (badge) {
+                        badge.textContent = totalItems;
+                        badge.style.display = totalItems > 0 ? 'inline' : 'none';
+                    }
+                    
+                    // Si no hay items, mostrar mensaje de carrito vacío
+                    if (totalItems === 0) {
+                        document.querySelector('.carrito-container').innerHTML = `
+                            <div style="text-align: center; padding: 2rem;">
+                                <h3>😔 Tu carrito está vacío</h3>
+                                <p>Agrega algunos productos para continuar.</p>
+                                <a href="{% url 'index' %}" class="btn">Seguir Comprando</a>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.log('Error actualizando carrito:', error);
+            }
+        }
+
+        // Actualizar contador del carrito
+        document.addEventListener('DOMContentLoaded', function() {
+            actualizarContadorCarrito();
+        });
+
+        async function actualizarContadorCarrito() {
+            const token = getAuthToken();
+            if (!token) return;
+            
+            try {
+                const response = await fetch('/api/shopcart', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const carrito = await response.json();
+                    const totalItems = carrito.items.reduce((total, item) => total + item.quantity, 0);
+                    
+                    const badge = document.getElementById('carrito-badge');
+                    if (badge) {
+                        badge.textContent = totalItems;
+                    }
+                }
+            } catch (error) {
+                console.log('Error cargando carrito');
+            }
+        }
+    </script>
+    
+</body>
+</html>
