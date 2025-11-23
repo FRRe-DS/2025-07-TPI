@@ -1,0 +1,160 @@
+<!-- templates/portal_compras/ordenes.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Pedidos - Portal de Compras</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'portal_compras/css/css.css' %}">
+</head>
+<body>
+    <header>
+        <div class="header__logo-container">
+            <img class="header__logo" src="https://imgs.search.brave.com/xXu0HqkEYT9th61dMNlPQQL0e4y15tfFDRslLHKcvJY/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pLnJl/ZGQuaXQvY2Z3eXNz/OTA1bWtjMS5wbmc" alt="Logo">
+        </div>
+        
+        <nav class="navbar">
+            <ul class="list">
+                <li class="header__nav-item"><a class="btn" href="{% url 'index' %}">Home</a></li>
+                <li class="header__nav-item"><a class="btn" href="{% url 'productos' %}">Productos</a></li>
+                <li class="header__nav-item"><a class="btn" href="{% url 'shopcart' %}">Carrito</a></li>
+                <li class="header__nav-item"><a class="btn" href="{% url 'ordenes' %}">Mis Pedidos</a></li>
+            </ul>
+            <div class="header__buttons-container">
+                {% if user %}
+                    <span style="color: white; margin-right: 1rem;">Hola, {{ user.firstName }}</span>
+                    <a href="{% url 'logout' %}" class="btn btn--login">Cerrar Sesión</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn--login">Log In</a>
+                    <a href="{% url 'registro' %}" class="btn btn--Sign_Up">Sign Up</a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="orden-container">
+            <h2>📋 Mis Pedidos</h2>
+            
+            {% if orders %}
+                {% for order in orders %}
+                <div class="orden-item">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <h3>Orden #{{ order.id }}</h3>
+                            <p><strong>Fecha:</strong> {{ order.date|slice:":10" }} {{ order.date|slice:"11:16" }}</p>
+                            <p><strong>Total:</strong> ${{ order.total|floatformat:2 }}</p>
+                            {% if order.delivery_address %}
+                            <p><strong>Dirección:</strong> {{ order.delivery_address }}</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <span class="estado-{{ order.status|lower }}">
+                                {{ order.status }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4>📦 Productos:</h4>
+                        {% for item in order.items %}
+                        <div class="producto-item">
+                            <div>
+                                <strong>{{ item.product.name }}</strong>
+                                <br>
+                                <small>Cantidad: {{ item.quantity }}</small>
+                            </div>
+                            <div style="text-align: right;">
+                                <strong>${{ item.product.price|floatformat:2 }} c/u</strong>
+                                <br>
+                                <small>Subtotal: ${{ item.subtotal|floatformat:2 }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if order.status == 'PENDING' or order.status == 'PROCESSING' %}
+                    <div style="margin-top: 1rem; text-align: right;">
+                        <button class="btn-remove" onclick="cancelarOrden({{ order.id }})">
+                            Cancelar Pedido
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 3rem;">
+                    <h3>📭 No tienes pedidos aún</h3>
+                    <p>Realiza tu primera compra para ver tus pedidos aquí.</p>
+                    <a href="{% url 'index' %}" class="btn btn--login">🛒 Comenzar a Comprar</a>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <script>
+        function getAuthToken() {
+            return localStorage.getItem('authToken') || '{{ request.session.access_token|default:"" }}';
+        }
+
+        async function cancelarOrden(orderId) {
+            if (!confirm('¿Estás seguro de que quieres cancelar este pedido?')) {
+                return;
+            }
+
+            try {
+                const token = getAuthToken();
+                const response = await fetch(`/api/shopcart/history/${orderId}/cancel`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+
+                if (response.ok) {
+                    alert('✅ Pedido cancelado exitosamente');
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert('❌ Error: ' + (error.error || 'No se pudo cancelar el pedido'));
+                }
+            } catch (error) {
+                alert('❌ Error de conexión');
+            }
+        }
+
+        // Actualizar contador del carrito
+        document.addEventListener('DOMContentLoaded', function() {
+            actualizarContadorCarrito();
+        });
+
+        async function actualizarContadorCarrito() {
+            const token = getAuthToken();
+            if (!token) return;
+            
+            try {
+                const response = await fetch('/api/shopcart', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const carrito = await response.json();
+                    const totalItems = carrito.items.reduce((total, item) => total + item.quantity, 0);
+                    
+                    const badge = document.getElementById('carrito-badge');
+                    if (badge) {
+                        badge.textContent = totalItems;
+                        badge.style.display = totalItems > 0 ? 'inline' : 'none';
+                    }
+                }
+            } catch (error) {
+                console.log('Error cargando carrito');
+            }
+        }
+    </script>
+</body>
+</html>
