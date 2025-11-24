@@ -116,20 +116,30 @@ def api_obtener_carrito(request):
         }, status=500)
 
 @keycloak_login_required
+@keycloak_login_required
 def api_agregar_al_carrito(request):
-    """API protegida: Agregar producto al carrito SOLO del usuario actual"""
+    """API protegida: Agregar producto al carrito CON token de usuario"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            
             producto_id = data.get('producto_id')
             cantidad = data.get('cantidad', 1)
+            
+            print(f"🎯 api_agregar_al_carrito - Usuario: {request.user.username}")
             
             if not producto_id:
                 return JsonResponse({"error": "producto_id es requerido"}, status=400)
             
-            # ✅ CORREGIDO: Usar método seguro
+            # ✅ OBTENER TOKEN DEL USUARIO AUTENTICADO
+            access_token = obtener_token_usuario(request)
+            if not access_token:
+                return JsonResponse({"error": "No se pudo obtener token de usuario"}, status=401)
+            
+            # Obtener carrito del usuario
             carrito = get_user_cart(request.user)
+            
+            # ✅ OBTENER INFORMACIÓN DEL PRODUCTO CON TOKEN DE USUARIO
+            producto_info = obtener_info_producto_con_token(access_token, producto_id)
             
             # Buscar si el producto ya está en el carrito
             producto_existente = None
@@ -142,35 +152,36 @@ def api_agregar_al_carrito(request):
                 # Actualizar cantidad
                 carrito.items[producto_existente]['cantidad'] += cantidad
             else:
-                # Agregar nuevo producto - OBTENER DATOS REALES DEL PRODUCTO
-                producto_info = obtener_info_producto(producto_id)  # Función que debes implementar
-                
+                # Agregar nuevo producto con información REAL
                 carrito.items.append({
                     'producto_id': producto_id,
                     'cantidad': cantidad,
                     'producto': {
                         'id': producto_id,
                         'name': producto_info.get('nombre', f'Producto {producto_id}'),
-                        'price': float(producto_info.get('precio', 0))
+                        'price': float(producto_info.get('precio', 0)),
+                        'description': producto_info.get('descripcion', ''),
+                        'imagen_url': producto_info.get('imagenes', [{}])[0].get('url', '') if producto_info.get('imagenes') else ''
                     }
                 })
             
             carrito.save()
-            carrito.calculate_total()  # Recalcular total
+            carrito.calculate_total()
             
             return JsonResponse({
                 "status": "success",
                 "message": "Producto agregado al carrito",
-                "cliente": KEYCLOAK_CLIENT_ID
+                "usuario": request.user.username,
+                "carrito_id": carrito.id
             })
             
         except Exception as e:
+            print(f"💥 Error en api_agregar_al_carrito: {e}")
             return JsonResponse({
                 "error": f"Error al agregar al carrito: {str(e)}"
             }, status=500)
     
     return JsonResponse({"error": "Método no permitido"}, status=405)
-
 @keycloak_login_required
 def api_limpiar_carrito(request):
     """API protegida: Vaciar carrito"""
@@ -234,35 +245,26 @@ def orders_view(request):
         'user': request.user if request.user.is_authenticated else None
     })
 
-def obtener_info_producto(producto_id):
-    """Obtener información real del producto desde la API de Stock"""
+def obtener_info_producto(request, producto_id):
+    """Obtener información real del producto usando token del USUARIO"""
     try:
-        # Usar la misma lógica que en lista_productos para obtener el token
-        token_url = "http://keycloak:8080/realms/ds-2025-realm/protocol/openid-connect/token"
-        token_data = {
-            'grant_type': 'client_credentials',
-            'client_id': 'grupo-05',
-            'client_secret': '9e676dd4-2790-4191-9f1f-06c6c6fd71e5'
+        # ✅ CORREGIDO: Usar token del usuario autenticado
+        social_auth = request.user.social_auth.get(provider='keycloak')
+        access_token = social_auth.extra_data['access_token']
+        
+        # Llamar a la API de Stock para obtener el producto específico
+        stock_url = f"http://stock_backend_api:8081/v1/productos/{producto_id}"
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
         }
         
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        token_response = requests.post(token_url, data=token_data, headers=headers, timeout=10)
+        response = requests.get(stock_url, headers=headers, timeout=10)
         
-        if token_response.status_code == 200:
-            token_info = token_response.json()
-            access_token = token_info['access_token']
-            
-            # Llamar a la API de Stock para obtener el producto específico
-            stock_url = f"http://stock_backend_api:8081/v1/productos/{producto_id}"
-            headers = {
-                'Authorization': f'Bearer {access_token}',
-                'Content-Type': 'application/json'
-            }
-            
-            response = requests.get(stock_url, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                return response.json()
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"❌ Error obteniendo producto {producto_id}: {response.status_code}")
     
     except Exception as e:
         print(f"Error obteniendo info del producto {producto_id}: {e}")
@@ -273,7 +275,6 @@ def obtener_info_producto(producto_id):
         'precio': 0,
         'descripcion': 'Información no disponible'
     }
-
 # =============================================================================
 # API ENDPOINTS PROTEGIDOS CON KEYCLOAK - COMPRAS
 # =============================================================================
@@ -418,10 +419,11 @@ def api_agregar_al_carrito(request):
             if not producto_id:
                 return JsonResponse({"error": "producto_id es requerido"}, status=400)
             
-            from .models import ShoppingCart
+            # ✅ CORREGIDO: Usar método seguro
+            carrito = get_user_cart(request.user)
             
-            # ✅ CORREGIDO: Usar get_or_create pero asegurando que es para el usuario actual
-            carrito, created = ShoppingCart.objects.get_or_create(user=request.user)
+            # ✅ CORREGIDO: Obtener información del producto con token de USUARIO
+            producto_info = obtener_info_producto(request, producto_id)
             
             # Buscar si el producto ya está en el carrito
             producto_existente = None
@@ -434,23 +436,27 @@ def api_agregar_al_carrito(request):
                 # Actualizar cantidad
                 carrito.items[producto_existente]['cantidad'] += cantidad
             else:
-                # Agregar nuevo producto
+                # Agregar nuevo producto con información REAL
                 carrito.items.append({
                     'producto_id': producto_id,
                     'cantidad': cantidad,
                     'producto': {
                         'id': producto_id,
-                        'name': f'Producto {producto_id}',
-                        'price': 0
+                        'name': producto_info.get('nombre', f'Producto {producto_id}'),
+                        'price': float(producto_info.get('precio', 0)),
+                        'description': producto_info.get('descripcion', ''),
+                        'imagen_url': producto_info.get('imagenes', [{}])[0].get('url', '') if producto_info.get('imagenes') else ''
                     }
                 })
             
             carrito.save()
+            carrito.calculate_total()  # Recalcular total
             
             return JsonResponse({
                 "status": "success",
                 "message": "Producto agregado al carrito",
-                "cliente": KEYCLOAK_CLIENT_ID
+                "cliente": KEYCLOAK_CLIENT_ID,
+                "usuario": request.user.username  # ✅ Para debug
             })
             
         except Exception as e:
@@ -585,120 +591,93 @@ def producto_detalle(request, producto_id):
         }, status=500)
         
 def lista_productos(request):
-    """Vista CORREGIDA - usa nombres de servicio Docker"""
+    """Vista CORREGIDA - usa token del usuario autenticado"""
     productos = []
     query = request.GET.get('q', '')
     categoria = request.GET.get('categoria', '')
 
+    # Si no está autenticado, mostrar productos sin token
+    if not request.user.is_authenticated:
+        return render(request, 'portal_compras/productos.html', {
+            'productos': [],
+            'categorias': [],
+            'user': None
+        })
+
     try:
-        # ✅ CORREGIDO: Usar 'keycloak' desde dentro de Docker
-        token_url = "http://keycloak:8080/realms/ds-2025-realm/protocol/openid-connect/token"
-        token_data = {
-            'grant_type': 'client_credentials',
-            'client_id': 'grupo-05',
-            'client_secret': '9e676dd4-2790-4191-9f1f-06c6c6fd71e5'  # Tu secret
-        }
+        # ✅ CORREGIDO: Obtener token del USUARIO autenticado, no client credentials
+        social_auth = request.user.social_auth.get(provider='keycloak')
+        access_token = social_auth.extra_data['access_token']
         
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        print(f"🔄 Usando token de usuario: {request.user.username}")
         
-        print("🔄 Obteniendo token para Stock API...")
-        token_response = requests.post(token_url, data=token_data, headers=headers, timeout=10)
-        
-        if token_response.status_code != 200:
-            print(f"❌ Error token: {token_response.status_code} - {token_response.text}")
-            return render(request, 'portal_compras/productos.html', {
-                'productos': [],
-                'categorias': [],
-                'user': request.user
-            })
-        
-        token_info = token_response.json()
-        access_token = token_info['access_token']
-        print("✅ Token obtenido correctamente")
-        
-        # ✅ CORREGIDO: Usar 'stock_backend_api' desde dentro de Docker
+        # ✅ CORREGIDO: Usar 'stock_backend_api' desde dentro de Docker con token de usuario
         stock_url = "http://stock_backend_api:8081/v1/productos"
         headers = {
-                'Authorization': f'Bearer {access_token}',
-                'Content-Type': 'application/json'
-            }
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
         
-        print(f"🔄 Llamando a Stock API...")
+        print(f"🔄 Llamando a Stock API con token de usuario...")
         response = requests.get(stock_url, headers=headers, timeout=10)
         
-        """ if response.status_code != 200:
-            print(f"❌ Error Stock API: {response.status_code} - {response.text}")
-            return render(request, 'portal_compras/productos.html', {
-                'productos': [],
-                'categorias': [],
-                'user': request.user
-            })
-         """
         if response.status_code == 200:
-                productos_api = response.json()
-                print(f"✅ {len(productos_api)} productos obtenidos del Stock del Grupo 5")
+            productos_api = response.json()
+            print(f"✅ {len(productos_api)} productos obtenidos del Stock con token de usuario")
+            
+            # Transformar productos
+            for producto in productos_api:
+                categoria_principal = 'General'
+                if producto.get('categorias') and len(producto['categorias']) > 0:
+                    categoria_principal = producto['categorias'][0].get('nombre', 'General')
                 
-                # DEBUG: Mostrar estructura de datos recibida
-                if productos_api:
-                    print(f"🔍 Primer producto recibido: {productos_api[0]}")
-        # Transformar productos
-        productos_api = response.json()
-        print(f"✅ {len(productos_api)} productos obtenidos del Stock")
+                imagen_principal = None
+                if producto.get('imagenes') and len(producto['imagenes']) > 0:
+                    for img in producto['imagenes']:
+                        if img.get('esPrincipal'):
+                            imagen_principal = img.get('url')
+                            break
+                    if not imagen_principal:
+                        imagen_principal = producto['imagenes'][0].get('url')
+                
+                productos.append({
+                    'id': producto.get('id'),
+                    'name': producto.get('nombre'),
+                    'description': producto.get('descripcion'), 
+                    'price': float(producto.get('precio', 0)),
+                    'stock': producto.get('stockDisponible', 0),
+                    'category': categoria_principal,
+                    'imagen_url': imagen_principal,
+                    'ubicacion_ciudad': producto.get('ubicacion', {}).get('ciudad', ''),
+                    'ubicacion_provincia': producto.get('ubicacion', {}).get('provincia', ''),
+                })
         
-        for producto in productos_api:
-            categoria_principal = 'General'
-            if producto.get('categorias') and len(producto['categorias']) > 0:
-                categoria_principal = producto['categorias'][0].get('nombre', 'General')
+        else:
+            print(f"❌ Error Stock API: {response.status_code} - {response.text}")
             
-            imagen_principal = None
-            if producto.get('imagenes') and len(producto['imagenes']) > 0:
-                for img in producto['imagenes']:
-                    if img.get('esPrincipal'):
-                        imagen_principal = img.get('url')
-                        break
-                if not imagen_principal:
-                    imagen_principal = producto['imagenes'][0].get('url')
-            
-            productos.append({
-                'id': producto.get('id'),
-                'name': producto.get('nombre'),
-                'description': producto.get('descripcion'), 
-                'price': float(producto.get('precio', 0)),
-                'stock': producto.get('stockDisponible', 0),
-                'category': categoria_principal,
-                'imagen_url': imagen_principal,
-                'ubicacion_ciudad': producto.get('ubicacion', {}).get('ciudad', ''),
-                'ubicacion_provincia': producto.get('ubicacion', {}).get('provincia', ''),
-            })
-        
-        # Aplicar filtros
-        if query:
-            productos = [p for p in productos if query.lower() in p.get('name', '').lower()]
-        
-        if categoria:
-            productos = [p for p in productos if p.get('category', '').lower() == categoria.lower()]
-        
     except Exception as e:
         print(f"💥 Error general: {e}")
         import traceback
         traceback.print_exc()
-        return render(request, 'portal_compras/productos.html', {
-            'productos': [],
-            'categorias': [],
-            'user': request.user
-        })
+    
+    # Aplicar filtros
+    if query:
+        productos = [p for p in productos if query.lower() in p.get('name', '').lower()]
+    
+    if categoria:
+        productos = [p for p in productos if p.get('category', '').lower() == categoria.lower()]
     
     # Categorías para filtros
     categorias = sorted(list(set([p.get('category', '') for p in productos if p.get('category')])))
     
-    print(f"📦 Enviando {len(productos)} productos al template")
+    print(f"📦 Enviando {len(productos)} productos al template para usuario {request.user.username}")
     
     return render(request, 'portal_compras/productos.html', {
         'productos': productos,
         'categorias': categorias,
         'query': query,
         'categoria_seleccionada': categoria,
-        'user': request.user if request.user.is_authenticated else None
+        'user': request.user
     })
 def get_productos_prueba(mensaje_error=""):
     """Productos de prueba si falla la API"""
@@ -723,3 +702,24 @@ def get_user_cart(user):
     except ShoppingCart.DoesNotExist:
         # Si no existe, crear uno nuevo
         return ShoppingCart.objects.create(user=user, items=[], total=0)
+
+def obtener_token_usuario(request):
+    """Obtener el token de acceso del usuario autenticado"""
+    if not request.user.is_authenticated:
+        return None
+    
+    try:
+        # Obtener el token de Social Auth
+        social_auth = request.user.social_auth.get(provider='keycloak')
+        access_token = social_auth.extra_data.get('access_token')
+        
+        if access_token:
+            print(f"✅ Token obtenido para usuario: {request.user.username}")
+            return access_token
+        else:
+            print(f"❌ Usuario {request.user.username} no tiene token en social_auth")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error obteniendo token de usuario {request.user.username}: {e}")
+        return None
