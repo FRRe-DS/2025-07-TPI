@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL de tu Django (usa el mismo para todo)
   db:
@@ -54,7 +52,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASS=${DB_PASS}
-      - DB_HOST=db
+      - DB_HOST=${DB_HOST}
       - DB_PORT=5432
       - KEYCLOAK_SERVER_URL=http://keycloak:8080
       - KEYCLOAK_REALM=ds-2025-realm
@@ -64,5 +62,34 @@ services:
       - db
       - keycloak
 
+  stock_backend_api:
+      image: fariasvalentino25/docker-stock_backend_api:latest # ⬅️Usa la imagen pública
+      container_name: stock_backend_api
+      ports:
+        ["8081:8081"]
+      environment:
+        NODE_ENV: production
+        PORT: 8081
+        # ⚠️CLAVE: Las variables de entorno DEBEN ajustarse a su entorno.# Configuración de su Base de Datos
+        DB_HOST: aws-1-us-east-2.pooler.supabase.com
+        DB_PORT: 5432
+        DB_NAME: postgres
+        DB_USER: postgres.vzabfnzrcynffhdjdddv
+        DB_PASSWORD: TNNczJndvipl7Kgk
+        # Configuración de Keycloak (Debe coincidir con su Keycloak local)
+        KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/ds-2025-realm
+        KEYCLOAK_AUDIENCE: grupo-05
+
+      depends_on:
+        keycloak:
+          condition: service_started
+      networks:
+        - tpi_network # El nombre de la red debe coincidir con el que ellos usen
+      restart: unless-stopped
+
 volumes:
   pgdata:
+
+networks:
+  tpi_network:
+    driver: bridge

@@ -26,7 +26,7 @@
             </ul>
             <div class="header__buttons-container">
                 {% if user %}
-                    <span style="color: white; margin-right: 1rem;">Hola, {{ user.firstName }}</span>
+                    <span style="color: white; margin-right: 1rem;">Hola, {{ user.first_name }}</span>
                     <a href="{% url 'logout' %}" class="btn btn--login">Cerrar Sesión</a>
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn--login">Log In</a>
@@ -131,13 +131,11 @@
 
         async function agregarAlCarrito(productId) {
             const token = getAuthToken();
-            
             if (!token) {
                 alert('❌ Debes iniciar sesión para agregar productos al carrito');
                 window.location.href = '{% url "login" %}';
                 return;
             }
-            
             try {
                 const response = await fetch('/api/shopcart/items', {
                     method: 'POST',
@@ -151,9 +149,7 @@
                         quantity: 1
                     })
                 });
-
                 const result = await response.json();
-                
                 if (response.ok) {
                     alert('✅ Producto agregado al carrito!');
                     actualizarContadorCarrito();
@@ -168,18 +164,15 @@
         async function actualizarContadorCarrito() {
             const token = getAuthToken();
             if (!token) return;
-            
             try {
                 const response = await fetch('/api/shopcart', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 });
-                
                 if (response.ok) {
                     const carrito = await response.json();
                     const totalItems = carrito.items.reduce((total, item) => total + item.quantity, 0);
-                    
                     const badge = document.getElementById('carrito-badge');
                     if (badge) {
                         badge.textContent = totalItems;
@@ -188,42 +181,6 @@
                 }
             } catch (error) {
                 console.log('Error cargando carrito');
-            }
-        }
-        function getAuthToken() {
-            // Intentar obtener de localStorage, session, etc.
-            return localStorage.getItem('authToken') || '';
-        }
-
-        async function agregarAlCarrito(productId) {
-            const token = getAuthToken();
-            
-            if (!token) {
-                alert('❌ Debes iniciar sesión para agregar productos al carrito');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/shopcart/items', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,  // ⬅️ IMPORTANTE
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({
-                        productId: productId,
-                        quantity: 1
-                    })
-                });
-                
-                if (response.ok) {
-                    // Éxito
-                } else {
-                    // Error
-                }
-            } catch (error) {
-                console.error('Error:', error);
             }
         }
 
