@@ -161,6 +161,26 @@ def shopcart_get(request):
     """
     cart, created = ShoppingCart.objects.get_or_create(user=request.user)
     
+    # ✅ ACTUALIZAR INFORMACIÓN DE PRODUCTOS CON DATOS REALES
+    try:
+        cart_updated = False
+        for item in cart.items:
+            product_id = item.get('productId')
+            current_product = item.get('product', {})
+            
+            # Si el producto tiene nombre mockeado, actualizar
+            if current_product and ('Producto' in current_product.get('name', '') or current_product.get('name', '').startswith('Producto ')):
+                producto_real = obtener_producto_real(request, product_id)
+                if producto_real:
+                    item['product'] = producto_real
+                    cart_updated = True
+        
+        if cart_updated:
+            cart.save()
+            
+    except Exception as e:
+        print(f"Error actualizando carrito: {e}")
+    
     # Formatear respuesta según OAS
     return Response({
         'items': cart.items,
@@ -185,23 +205,14 @@ def shopcart_update(request):
             'code': 'PRODUCT_ID_REQUIRED'
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    # SOLO UNA VEZ - eliminar el duplicado
-    productos_mock = {
-        1: {'id': 1, 'name': 'Notebook Gamer', 'description': 'Laptop gaming', 'price': 1500.00, 'stock': 10, 'category': 'Tecnología'},
-        2: {'id': 2, 'name': 'Mouse Inalámbrico', 'description': 'Mouse ergonómico', 'price': 45.99, 'stock': 25, 'category': 'Accesorios'},
-        3: {'id': 3, 'name': 'Teclado Mecánico', 'description': 'Teclado gaming', 'price': 89.99, 'stock': 15, 'category': 'Accesorios'},
-        4: {'id': 4, 'name': 'Monitor 24"', 'description': 'Monitor Full HD', 'price': 299.99, 'stock': 8, 'category': 'Tecnología'},
-        5: {'id': 5, 'name': 'Auriculares Bluetooth', 'description': 'Auriculares inalámbricos', 'price': 129.99, 'stock': 20, 'category': 'Audio'}
-    }
+    # ✅ CONSULTAR API EXTERNA DE STOCK - REEMPLAZAR MOCK
+    producto_info = obtener_producto_real(request, product_id)
     
-    producto_info = productos_mock.get(product_id, {
-        'id': product_id,
-        'name': f'Producto {product_id}',
-        'description': f'Descripción del producto {product_id}',
-        'price': 99.99,
-        'stock': 10,
-        'category': 'General'
-    })
+    if not producto_info:
+        return Response({
+            'error': 'Producto no encontrado',
+            'code': 'PRODUCT_NOT_FOUND'
+        }, status=status.HTTP_404_NOT_FOUND)
     
     # Buscar si el producto ya está en el carrito
     item_index = None
@@ -214,7 +225,7 @@ def shopcart_update(request):
         # Actualizar cantidad existente
         cart.items[item_index]['quantity'] = quantity
     else:
-        # Agregar nuevo item
+        # Agregar nuevo item con información REAL
         cart.items.append({
             'productId': product_id,
             'quantity': quantity,
@@ -230,6 +241,59 @@ def shopcart_update(request):
         'total': cart.total
     })
 
+# ✅ AGREGAR FUNCIÓN PARA OBTENER PRODUCTO REAL
+def obtener_producto_real(request, product_id):
+    """
+    Obtener información real del producto desde la API de Stock
+    """
+    try:
+        # Obtener token del usuario autenticado
+        social_auth = request.user.social_auth.get(provider='keycloak')
+        access_token = social_auth.extra_data['access_token']
+        
+        # Consultar API de Stock
+        stock_url = f"{settings.STOCK_API_URL}/productos/{product_id}"
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.get(stock_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            producto_data = response.json()
+            
+            # Transformar a formato compatible con el carrito
+            categoria_principal = 'General'
+            if producto_data.get('categorias') and len(producto_data['categorias']) > 0:
+                categoria_principal = producto_data['categorias'][0].get('nombre', 'General')
+            
+            imagen_principal = None
+            if producto_data.get('imagenes') and len(producto_data['imagenes']) > 0:
+                for img in producto_data['imagenes']:
+                    if img.get('esPrincipal'):
+                        imagen_principal = img.get('url')
+                        break
+                if not imagen_principal:
+                    imagen_principal = producto_data['imagenes'][0].get('url')
+            
+            return {
+                'id': producto_data.get('id'),
+                'name': producto_data.get('nombre'),
+                'description': producto_data.get('descripcion'),
+                'price': float(producto_data.get('precio', 0)),
+                'stock': producto_data.get('stockDisponible', 0),
+                'category': categoria_principal,
+                'imagen_url': imagen_principal
+            }
+        else:
+            print(f"❌ Error API Stock: {response.status_code}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error obteniendo producto real: {e}")
+        return None
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def shopcart_clear(request):
@@ -244,6 +308,24 @@ def shopcart_clear(request):
     return Response({
         'message': 'Carrito vaciado'
     })
+
+def actualizar_productos_carrito(cart):
+    """
+    Actualizar información de productos en el carrito con datos reales de Stock
+    """
+    try:
+        for item in cart.items:
+            product_id = item.get('productId')
+            
+            # Si el producto tiene información mockeada o desactualizada
+            if item.get('product') and ('Producto' in item['product'].get('name', '') or item['product'].get('name', '').startswith('Producto ')):
+                
+                # Obtener información real (necesitarías pasar el request o manejar el token de otra forma)
+                # Para simplificar, podrías hacer esto al cargar el carrito
+                pass
+                
+    except Exception as e:
+        print(f"Error actualizando productos del carrito: {e}")
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
@@ -264,17 +346,21 @@ def shopcart_remove_item(request, productId):
         'total': cart.total
     })
 
+from django.utils import timezone
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def checkout_api(request):
-    """
-    POST /api/shopcart/checkout - Confirmar pedido
-    """
+    """POST /api/shopcart/checkout - Confirmar pedido CON RESERVA EN STOCK"""
+    print(f"🔔 CHECKOUT INICIADO - Usuario: {request.user.username}")
+    
     try:
         # 1. Obtener el carrito del usuario
         cart, created = ShoppingCart.objects.get_or_create(user=request.user)
+        print(f"🛒 Carrito obtenido: {len(cart.items)} items")
         
         if not cart.items:
+            print("❌ Carrito vacío")
             return Response({
                 'error': 'Carrito vacío',
                 'code': 'EMPTY_CART'
@@ -284,22 +370,46 @@ def checkout_api(request):
         delivery_address = request.data.get('deliveryAddress')
         payment_method = request.data.get('paymentMethod', 'credit_card')
         
+        print(f"📦 Dirección: {delivery_address}")
+        print(f"💳 Método pago: {payment_method}")
+        
         if not delivery_address:
+            print("❌ Dirección faltante")
             return Response({
                 'error': 'Dirección de entrega requerida',
                 'code': 'DELIVERY_ADDRESS_REQUIRED'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # 3. Crear la orden
+        # 3. ✅ CREAR RESERVA EN STOCK
+        print("🔄 Creando reserva en Stock...")
+        reserva_resultado = crear_reserva_stock(request, cart.items, delivery_address)
+        
+        if not reserva_resultado.get('success'):
+            error_msg = reserva_resultado.get('error', 'Error al crear reserva en Stock')
+            print(f"❌ Error en reserva: {error_msg}")
+            return Response({
+                'error': error_msg,
+                'code': 'STOCK_RESERVATION_FAILED',
+                'details': reserva_resultado.get('details')
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        print(f"✅ Reserva creada: {reserva_resultado.get('reserva_id')}")
+        
+        # 4. Crear la orden en nuestra base de datos
+        total = sum(item['quantity'] * item['product']['price'] for item in cart.items)
+        print(f"💰 Total calculado: {total}")
+        
         order = Order.objects.create(
             user=request.user,
-            total=cart.total,
+            total=total,
             delivery_address=delivery_address,
             payment_method=payment_method,
-            status='PENDING'
+            status='PENDING',
+            stock_booking_id=reserva_resultado.get('reserva_id')
         )
+        print(f"✅ Orden creada: #{order.id}")
         
-        # 4. Crear los items de la orden
+        # 5. Crear los items de la orden
         for cart_item in cart.items:
             OrderItem.objects.create(
                 order=order,
@@ -307,45 +417,117 @@ def checkout_api(request):
                 quantity=cart_item['quantity'],
                 price=cart_item['product']['price']
             )
-        
-        # 5. Aquí integraríamos con servicios externos (Stock y Logística)
-        # Por ahora simulamos la integración
-        order.stock_booking_id = 1000 + order.id  # Simulación
-        order.logistics_tracking_id = 2000 + order.id  # Simulación
-        order.save()
+        print(f"✅ Items de orden creados: {len(cart.items)}")
         
         # 6. Vaciar el carrito
         cart.items = []
         cart.total = 0
         cart.save()
+        print("✅ Carrito vaciado")
         
-        # 7. Preparar respuesta según OAS
+        # 7. Preparar respuesta
         order_data = {
             'id': order.id,
             'date': order.date.isoformat(),
             'status': order.status,
             'total': float(order.total),
-            'items': [
-                {
-                    'productId': item.productId,
-                    'quantity': item.quantity,
-                    'product': {
-                        'id': item.productId,
-                        'name': f'Producto {item.productId}',  # En producción obtener del servicio Stock
-                        'price': float(item.price)
-                    }
-                } for item in order.items.all()
-            ]
+            'delivery_address': order.delivery_address,
+            'payment_method': order.payment_method,
+            'stock_booking_id': order.stock_booking_id,
+            'compra_id': reserva_resultado.get('compra_id'),
+            'reserva_estado': reserva_resultado.get('estado'),
+            'message': 'Orden creada exitosamente'
         }
+        
+        print(f"🎉 CHECKOUT COMPLETADO - Orden #{order.id}")
         
         return Response(order_data, status=status.HTTP_201_CREATED)
         
     except Exception as e:
+        print(f"💥 ERROR EN CHECKOUT: {e}")
+        import traceback
+        traceback.print_exc()
         return Response({
-            'error': 'Error al procesar el checkout',
+            'error': f'Error al procesar el checkout: {str(e)}',
             'code': 'CHECKOUT_ERROR'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# ✅ FUNCIÓN PARA RESERVAR PRODUCTOS EN STOCK
+def reservar_productos_stock(request, items):
+    """
+    Integración con el servicio Stock para reservar productos
+    """
+    try:
+        # Obtener token del usuario
+        social_auth = request.user.social_auth.get(provider='keycloak')
+        access_token = social_auth.extra_data['access_token']
+        
+        # Preparar datos para la reserva
+        reserva_data = {
+            'items': [
+                {
+                    'producto_id': item['productId'],
+                    'cantidad': item['quantity']
+                } for item in items
+            ],
+            'usuario_id': request.user.id,
+            'fecha_reserva': timezone.now().isoformat()
+        }
+        
+        print(f"📦 Enviando reserva a Stock API: {reserva_data}")
+        
+        # Llamar al endpoint real de reservas de Stock
+        stock_url = f"{settings.STOCK_API_URL}/reservas"
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.post(stock_url, json=reserva_data, headers=headers, timeout=10)
+        
+        print(f"📦 Respuesta Stock API: {response.status_code} - {response.text}")
+        
+        if response.status_code == 201:
+            reserva_response = response.json()
+            return {
+                'success': True,
+                'booking_id': reserva_response.get('id'),
+                'message': 'Productos reservados exitosamente'
+            }
+        else:
+            error_details = f"Error del servicio Stock: {response.status_code}"
+            try:
+                error_json = response.json()
+                error_details = error_json.get('error', error_json.get('message', error_details))
+            except:
+                pass
+                
+            return {
+                'success': False,
+                'error': 'No se pudieron reservar los productos',
+                'details': error_details
+            }
+            
+    except requests.exceptions.ConnectionError:
+        return {
+            'success': False,
+            'error': 'No se pudo conectar al servicio Stock',
+            'details': 'Error de conexión'
+        }
+    except requests.exceptions.Timeout:
+        return {
+            'success': False,
+            'error': 'Timeout al conectar con servicio Stock',
+            'details': 'El servicio no respondió a tiempo'
+        }
+    except Exception as e:
+        print(f"❌ Error en reservar_productos_stock: {e}")
+        return {
+            'success': False,
+            'error': f'Error inesperado: {str(e)}',
+            'details': 'Error interno del servidor'
+        }
+        
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def order_history_api(request):
@@ -418,24 +600,30 @@ def order_detail_api(request, id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def cancel_order_api(request, id):
-    """
-    DELETE /api/shopcart/history/{id} - Cancelar pedido
-    """
+    """Cancelar pedido Y RESERVA EN STOCK"""
     try:
+        from .models import Order
+        
         order = Order.objects.get(id=id, user=request.user)
         
-        # Solo se pueden cancelar pedidos pendientes o en procesamiento
         if order.status not in ['PENDING', 'PROCESSING']:
             return Response({
                 'error': 'No se puede cancelar un pedido ya enviado',
                 'code': 'CANNOT_CANCEL_SHIPPED_ORDER'
             }, status=status.HTTP_400_BAD_REQUEST)
         
+        # ✅ CANCELAR RESERVA EN STOCK si existe
+        if order.stock_booking_id:
+            cancel_result = cancelar_reserva_stock(request, order.stock_booking_id)
+            if not cancel_result.get('success'):
+                print(f"⚠️ No se pudo cancelar reserva en Stock: {cancel_result.get('error')}")
+        
         order.status = 'CANCELLED'
         order.save()
         
         return Response({
-            'message': 'Pedido cancelado exitosamente'
+            'message': 'Pedido cancelado exitosamente',
+            'reserva_cancelada': order.stock_booking_id is not None
         })
         
     except Order.DoesNotExist:
@@ -443,3 +631,271 @@ def cancel_order_api(request, id):
             'error': 'Pedido no encontrado',
             'code': 'ORDER_NOT_FOUND'
         }, status=status.HTTP_404_NOT_FOUND)
+
+# =============================================================================
+# ENDPOINT EXTRA PARA CONSULTAR RESERVAS
+# =============================================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def obtener_reservas_usuario(request):
+    """GET /api/reservas - Obtener reservas del usuario en Stock"""
+    try:
+        social_auth = request.user.social_auth.get(provider='keycloak')
+        access_token = social_auth.extra_data['access_token']
+        
+        reservas_url = f"{settings.STOCK_API_URL}/reservas"
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Si la API de Stock permite filtrar por usuario
+        params = {
+            'usuarioId': request.user.id
+        }
+        
+        response = requests.get(reservas_url, headers=headers, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            reservas = response.json()
+            return Response({
+                'status': 'success',
+                'total_reservas': len(reservas),
+                'reservas': reservas
+            })
+        else:
+            # Si no permite filtrar, obtener todas y filtrar localmente
+            response_all = requests.get(reservas_url, headers=headers, timeout=10)
+            if response_all.status_code == 200:
+                todas_reservas = response_all.json()
+                reservas_usuario = [
+                    reserva for reserva in todas_reservas 
+                    if reserva.get('usuarioId') == request.user.id
+                ]
+                return Response({
+                    'status': 'success',
+                    'total_reservas': len(reservas_usuario),
+                    'reservas': reservas_usuario
+                })
+            else:
+                return Response({
+                    'error': 'Error obteniendo reservas',
+                    'code': 'RESERVAS_ERROR'
+                }, status=response_all.status_code)
+            
+    except Exception as e:
+        print(f"❌ Error obteniendo reservas: {e}")
+        return Response({
+            'error': 'Error de conexión con servicio Stock',
+            'code': 'CONNECTION_ERROR'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# =============================================================================
+# FUNCIONES AUXILIARES
+# =============================================================================
+
+def crear_reserva_stock(request, items, delivery_address):
+    """Crear una reserva en el servicio Stock para los productos del carrito"""
+    print(f"🔍 INICIANDO crear_reserva_stock")
+    print(f"🔍 Items: {items}")
+    print(f"🔍 User ID: {request.user.id}")
+    
+    try:
+        # Obtener token del usuario
+        social_auth = request.user.social_auth.get(provider='keycloak')
+        access_token = social_auth.extra_data['access_token']
+        print(f"🔍 Token: {access_token[:50]}...")
+        
+        # Generar ID único para la compra
+        import random
+        compra_id = f"COMPRA-PORTAL-{random.randint(100, 999):03d}"
+        print(f"🔍 Compra ID: {compra_id}")
+        
+        # Preparar datos
+        productos_data = []
+        for item in items:
+            producto_data = {
+                'productoId': item['productId'],
+                'cantidad': item['quantity'],
+                'precioUnitario': str(item['product']['price'])
+            }
+            productos_data.append(producto_data)
+            print(f"🔍 Producto: {producto_data}")
+        
+        reserva_data = {
+            'idCompra': compra_id,
+            'usuarioId': request.user.id,
+            'productos': productos_data
+        }
+        
+        print(f"📦 ENVIANDO a Stock API: {reserva_data}")
+        
+        # Llamar al endpoint
+        reservas_url = f"{settings.STOCK_API_URL}/reservas"
+        print(f"🔍 URL: {reservas_url}")
+        
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        print(f"🔍 Headers: {headers}")
+        
+        response = requests.post(reservas_url, json=reserva_data, headers=headers, timeout=10)
+        
+        print(f"📦 RESPUESTA Stock API:")
+        print(f"   Status: {response.status_code}")
+        print(f"   Headers: {dict(response.headers)}")
+        print(f"   Content: {response.text}")
+        
+        if response.status_code == 201:
+            reserva_response = response.json()
+            print(f"✅ RESERVA EXITOSA: {reserva_response}")
+            return {
+                'success': True,
+                'reserva_id': reserva_response.get('idReserva'),
+                'compra_id': reserva_response.get('idCompra'),
+                'estado': reserva_response.get('estado'),
+                'message': 'Reserva creada exitosamente',
+                'data': reserva_response
+            }
+        else:
+            print(f"❌ ERROR: {response.status_code} - {response.text}")
+            return {
+                'success': False,
+                'error': f'Error del servicio Stock: {response.status_code}',
+                'details': response.text
+            }
+            
+    except Exception as e:
+        print(f"💥 EXCEPCIÓN: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'error': f'Error inesperado: {str(e)}'
+        }
+
+# DEBERIAMOS USAR UUID EN VEZ DE ID NUMERICO?
+# def crear_reserva_stock(request, items, delivery_address):
+#     """Crear una reserva en el servicio Stock para los productos del carrito"""
+#     print(f"🔍 INICIANDO crear_reserva_stock")
+#     print(f"🔍 Items: {items}")
+    
+#     try:
+#         import random  # ✅ IMPORT DENTRO DE LA FUNCIÓN
+        
+#         # Obtener token y User ID de Keycloak
+#         social_auth = request.user.social_auth.get(provider='keycloak')
+#         access_token = social_auth.extra_data['access_token']
+#         keycloak_user_id = social_auth.uid  # UUID de Keycloak
+        
+#         print(f"🔑 Keycloak User ID: {keycloak_user_id}")
+#         print(f"🔑 Token: {access_token[:50]}...")
+        
+#         # Generar ID único para la compra
+#         compra_id = f"COMPRA-PORTAL-{random.randint(100, 999):03d}"
+#         print(f"🔍 Compra ID: {compra_id}")
+        
+#         # Preparar datos
+#         productos_data = []
+#         for item in items:
+#             producto_data = {
+#                 'productoId': item['productId'],
+#                 'cantidad': item['quantity'],
+#                 'precioUnitario': str(item['product']['price'])
+#             }
+#             productos_data.append(producto_data)
+#             print(f"🔍 Producto: {producto_data}")
+        
+#         # ✅ USAR KEYCLOAK USER ID (UUID)
+#         reserva_data = {
+#             'idCompra': compra_id,
+#             'usuarioId': keycloak_user_id,  # UUID de Keycloak
+#             'productos': productos_data
+#         }
+        
+#         print(f"📦 ENVIANDO a Stock API: {reserva_data}")
+        
+#         # Llamar al endpoint
+#         reservas_url = f"{settings.STOCK_API_URL}/reservas"
+#         print(f"🔍 URL: {reservas_url}")
+        
+#         headers = {
+#             'Authorization': f'Bearer {access_token}',
+#             'Content-Type': 'application/json'
+#         }
+        
+#         response = requests.post(reservas_url, json=reserva_data, headers=headers, timeout=10)
+        
+#         print(f"📦 RESPUESTA Stock API:")
+#         print(f"   Status: {response.status_code}")
+#         print(f"   Content: {response.text}")
+        
+#         if response.status_code == 201:
+#             reserva_response = response.json()
+#             print(f"✅ RESERVA EXITOSA: {reserva_response}")
+#             return {
+#                 'success': True,
+#                 'reserva_id': reserva_response.get('idReserva'),
+#                 'compra_id': reserva_response.get('idCompra'),
+#                 'estado': reserva_response.get('estado'),
+#                 'message': 'Reserva creada exitosamente',
+#                 'data': reserva_response
+#             }
+#         else:
+#             print(f"❌ ERROR: {response.status_code} - {response.text}")
+#             return {
+#                 'success': False,
+#                 'error': f'Error del servicio Stock: {response.status_code}',
+#                 'details': response.text
+#             }
+            
+#     except Exception as e:
+#         print(f"💥 EXCEPCIÓN en crear_reserva_stock: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         return {
+#             'success': False,
+#             'error': f'Error inesperado: {str(e)}'
+#         }
+
+def cancelar_reserva_stock(request, reserva_id):
+    """Cancelar una reserva en el servicio Stock"""
+    try:
+        social_auth = request.user.social_auth.get(provider='keycloak')
+        access_token = social_auth.extra_data['access_token']
+        
+        # Llamar al endpoint para cancelar reserva
+        cancel_url = f"{settings.STOCK_API_URL}/reservas/{reserva_id}/cancelar"
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        print(f"🔄 Cancelando reserva #{reserva_id} en Stock API...")
+        
+        response = requests.patch(cancel_url, headers=headers, timeout=10)
+        
+        print(f"📦 Respuesta cancelación: {response.status_code} - {response.text}")
+        
+        if response.status_code in [200, 204]:
+            print(f"✅ Reserva {reserva_id} cancelada en Stock")
+            return {
+                'success': True,
+                'message': 'Reserva cancelada exitosamente'
+            }
+        else:
+            print(f"⚠️ No se pudo cancelar reserva {reserva_id}: {response.status_code}")
+            return {
+                'success': False,
+                'error': f'No se pudo cancelar la reserva: {response.status_code} - {response.text}'
+            }
+            
+    except Exception as e:
+        print(f"❌ Error cancelando reserva: {e}")
+        return {
+            'success': False,
+            'error': f'Error cancelando reserva: {str(e)}'
+        }

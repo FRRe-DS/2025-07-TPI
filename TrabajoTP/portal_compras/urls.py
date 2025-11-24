@@ -24,6 +24,6 @@ urlpatterns = [
     path('api/shopcart/history/<int:id>/cancel', api_views.cancel_order_api, name='api_cancel_order'),
 
     # ----- API STOCK ------ #
-    # ✅ Mantén solo el detalle de producto si lo necesitas:
+    path('api/reservas', api_views.obtener_reservas_usuario, name='api_reservas'),
     path('api/productos/<int:producto_id>/', views.producto_detalle, name='producto-detalle'),
 ]

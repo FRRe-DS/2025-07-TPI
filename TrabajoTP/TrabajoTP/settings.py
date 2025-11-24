@@ -24,7 +24,8 @@ INSTALLED_APPS = [
     'oauth2_provider',
     'corsheaders',
     'social_django',  # Para integración con Keycloak
-    'portal_compras'
+    'portal_compras',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -63,11 +64,11 @@ WSGI_APPLICATION = 'TrabajoTP.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'portal_db'),
-        'USER': os.getenv('DB_USER', 'portal_user'),
-        'PASSWORD': os.getenv('DB_PASS', 'portal_password'),
-        'HOST': os.getenv('DB_HOST', 'db'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+        'NAME': 'postgres',  # Nombre de BD de Supabase
+        'USER': 'postgres.vzabfnzrcynffhdjdddv',  # Tu usuario de Supabase
+        'PASSWORD': 'TNNczJndvipl7Kgk',  # Tu password de Supabase
+        'HOST': 'aws-1-us-east-2.pooler.supabase.com',  # Host de Supabase
+        'PORT': '5432',
     }
 }
 
