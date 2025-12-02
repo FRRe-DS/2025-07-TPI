@@ -52,3 +52,23 @@ def keycloak_login_required(view_func):
             }, status=401)
     
     return wrapper
+
+def obtener_token_client_credentials():
+    """Obtener token usando client credentials para usuarios no autenticados"""
+    try:
+        from keycloak import KeycloakOpenID
+        from django.conf import settings
+        
+        keycloak_openid = KeycloakOpenID(
+            server_url=settings.KEYCLOAK_SERVER_URL,
+            client_id=settings.KEYCLOAK_CLIENT_ID,
+            realm_name=settings.KEYCLOAK_REALM,
+            client_secret_key=settings.KEYCLOAK_CLIENT_SECRET,
+        )
+        
+        token = keycloak_openid.token(grant_type="client_credentials")
+        return token.get('access_token')
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo token client_credentials: {e}")
+        return None
