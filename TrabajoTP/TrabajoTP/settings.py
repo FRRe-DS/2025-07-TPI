@@ -106,7 +106,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL', 'http://keycloak:8080')
 KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', 'ds-2025-realm')
 KEYCLOAK_CLIENT_ID = os.getenv('KEYCLOAK_CLIENT_ID', 'grupo-07')
-KEYCLOAK_CLIENT_SECRET = os.getenv('KEYCLOAK_CLIENT_SECRET', 'tdSnJM8CsPPl6dJW4Tq6k9JWnSqndkfH')
+KEYCLOAK_CLIENT_SECRET = os.getenv('KEYCLOAK_CLIENT_SECRET', 'eHABZewNbvQkaULLbzgVZnufpigL5a9K')
 
 # Configuración para Stock API (grupo-05)
 STOCK_API_CLIENT_ID = 'grupo-05'
