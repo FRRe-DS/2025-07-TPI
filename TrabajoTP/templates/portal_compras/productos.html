@@ -20,25 +20,23 @@
                 <li class="header__nav-item"><a class="btn" href="{% url 'index' %}">Home</a></li>
                 <li class="header__nav-item"><a class="btn" href="{% url 'productos' %}">Productos</a></li>
                 <li class="header__nav-item"><a class="btn" href="{% url 'shopcart' %}">Carrito</a></li>
-                {% if user %}
+                {% if user.is_authenticated %}
                 <li class="header__nav-item"><a class="btn" href="{% url 'ordenes' %}">Mis Pedidos</a></li>
                 {% endif %}
             </ul>
             <div class="header__buttons-container">
-                <div class="header__buttons-container">
-                    {% if user.is_authenticated %}
-                    <span style="color: white; margin-right: 1rem;">
-                        Hola,
-                        {% if user.first_name and user.last_name %}
-                            {{ user.first_name }}
-                        {% endif %} !
-                    </span>
-                    <a href="{% url 'logout' %}" class="btn btn--login">Cerrar Sesión</a>
-                    {% else %}
-                        <a href="{% url 'login' %}" class="btn btn--login">Log In</a>
-                        <a href="{% url 'registro' %}" class="btn btn--Sign_Up">Sign Up</a>
-                    {% endif %}
-                </div>
+                {% if user.is_authenticated %}
+                <span style="color: white; margin-right: 1rem;">
+                    Hola,
+                    {% if user.first_name and user.last_name %}
+                        {{ user.first_name }}
+                    {% endif %} !
+                </span>
+                <a href="{% url 'logout' %}" class="btn btn--login">Cerrar Sesión</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn--login">Log In</a>
+                    <a href="{% url 'registro' %}" class="btn btn--Sign_Up">Sign Up</a>
+                {% endif %}
             </div>
         </nav>
     </header>
@@ -111,19 +109,20 @@
                             {% endif %}
                         </div>
                         
-                        {% if user %}
-                            {% if producto.stock > 0 %}
+                        <!-- BOTONES MEJORADOS: siempre visibles pero con comportamiento diferente -->
+                        {% if producto.stock > 0 %}
+                            {% if user.is_authenticated %}
                             <button class="btn-add" onclick="agregarAlCarrito({{ producto.id }})">
                                 🛒 Añadir al carrito
                             </button>
                             {% else %}
-                            <button class="btn-add" disabled style="background: #6b7280;">
-                                ❌ Sin stock
+                            <button class="btn-add" onclick="redirigirALogin()">
+                                🔒 Iniciar sesión para comprar
                             </button>
                             {% endif %}
                         {% else %}
-                            <button class="btn-add" disabled>
-                                🔒 Inicia sesión para comprar
+                            <button class="btn-add" disabled style="background: #6b7280;">
+                                ❌ Sin stock
                             </button>
                         {% endif %}
                     </article>
@@ -148,15 +147,20 @@
             return localStorage.getItem('authToken') || '';
         }
 
+        function redirigirALogin() {
+            if (confirm('🔒 Debes iniciar sesión para agregar productos al carrito. ¿Quieres ir a la página de login?')) {
+                window.location.href = '{% url "login" %}';
+            }
+        }
+
         async function agregarAlCarrito(productId) {
             console.log("🔄 Intentando agregar producto:", productId);
             
-            // Obtener token de localStorage (como lo tienes en login)
+            // Obtener token de localStorage
             const token = localStorage.getItem('authToken');
             
             if (!token) {
-                alert('❌ Debes iniciar sesión para agregar productos al carrito');
-                window.location.href = '{% url "login" %}';
+                redirigirALogin();
                 return;
             }
 
@@ -190,6 +194,7 @@
                 alert('❌ Error de conexión. Revisa la consola para más detalles.');
             }
         }
+
         async function actualizarContadorCarrito() {
             const token = localStorage.getItem('authToken');
             if (!token) {
@@ -223,7 +228,8 @@
                 console.log('💥 Error cargando carrito:', error);
             }
         }
-       document.addEventListener('DOMContentLoaded', actualizarContadorCarrito);
+
+        document.addEventListener('DOMContentLoaded', actualizarContadorCarrito);
     </script>
 </body>
 </html>

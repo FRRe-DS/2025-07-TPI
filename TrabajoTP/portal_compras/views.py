@@ -17,11 +17,100 @@ KEYCLOAK_CLIENT_ID = settings.KEYCLOAK_CLIENT_ID
 # =============================================================================
 
 def index(request):
-    """Página principal"""
+    """Página principal con productos destacados"""
+    productos_destacados = []
+    
+    try:
+        # Obtener token para la API (client credentials para no autenticados)
+        access_token = None
+        
+        if request.user.is_authenticated:
+            # Intentar con token de usuario autenticado
+            try:
+                social_auth = request.user.social_auth.get(provider='keycloak')
+                access_token = social_auth.extra_data['access_token']
+                print(f"🔄 Home: Usando token de usuario {request.user.username}")
+            except Exception as e:
+                print(f"❌ Home: Error con token de usuario: {e}")
+                access_token = None
+        
+        # Si no hay token de usuario, usar client credentials
+        if not access_token:
+            from .keycloak_auth import obtener_token_client_credentials
+            access_token = obtener_token_client_credentials()
+            print("🔄 Home: Usando client credentials")
+        
+        if access_token:
+            stock_url = "http://stock_backend_api:8081/v1/productos"
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = requests.get(stock_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                productos_api = response.json()
+                print(f"✅ Home: {len(productos_api)} productos obtenidos")
+                
+                # Procesar todos los productos
+                todos_productos = []
+                
+                for producto in productos_api:
+                    categoria_principal = 'General'
+                    if producto.get('categorias') and len(producto['categorias']) > 0:
+                        categoria_principal = producto['categorias'][0].get('nombre', 'General')
+                    
+                    imagen_principal = None
+                    if producto.get('imagenes') and len(producto['imagenes']) > 0:
+                        for img in producto['imagenes']:
+                            if img.get('esPrincipal'):
+                                imagen_principal = img.get('url')
+                                break
+                        if not imagen_principal:
+                            imagen_principal = producto['imagenes'][0].get('url')
+                    
+                    producto_formateado = {
+                        'id': producto.get('id'),
+                        'name': producto.get('nombre'),
+                        'description': producto.get('descripcion', ''),
+                        'price': float(producto.get('precio', 0)),
+                        'stock': producto.get('stockDisponible', 0),
+                        'category': categoria_principal,
+                        'imagen_url': imagen_principal,
+                        'ubicacion_ciudad': producto.get('ubicacion', {}).get('ciudad', ''),
+                        'ubicacion_provincia': producto.get('ubicacion', {}).get('provincia', ''),
+                    }
+                    
+                    todos_productos.append(producto_formateado)
+                
+                # ESTRATEGIA 1: Productos con mayor stock (más disponibles)
+                productos_con_stock = [p for p in todos_productos if p['stock'] > 0]
+                
+                if productos_con_stock:
+                    # Ordenar por stock descendente y tomar los primeros 8
+                    productos_destacados = sorted(productos_con_stock, key=lambda x: x['stock'], reverse=True)[:8]
+                else:
+                    # Si no hay productos con stock, tomar los primeros 8
+                    productos_destacados = todos_productos[:8]
+                    
+                print(f"🏠 Home: Mostrando {len(productos_destacados)} productos destacados")
+                
+            else:
+                print(f"❌ Home: Error Stock API: {response.status_code}")
+        else:
+            print("❌ Home: No se pudo obtener token")
+            
+    except Exception as e:
+        print(f"💥 Home: Error general: {e}")
+        import traceback
+        traceback.print_exc()
+    
     return render(request, 'portal_compras/index.html', {
-        'user': request.user if request.user.is_authenticated else None
+        'user': request.user if request.user.is_authenticated else None,
+        'productos_destacados': productos_destacados
     })
-
+    
 def login_view(request):
     """Vista de login que muestra opciones de autenticación"""
     if request.user.is_authenticated:
@@ -151,36 +240,59 @@ def orders_view(request):
     })
 
 def lista_productos(request):
-    """Vista de lista de productos - usa token del usuario autenticado"""
+    """Vista de lista de productos - funciona para usuarios autenticados y no autenticados"""
     productos = []
     query = request.GET.get('q', '')
     categoria = request.GET.get('categoria', '')
 
-    if not request.user.is_authenticated:
-        return render(request, 'portal_compras/productos.html', {
-            'productos': [],
-            'categorias': [],
-            'user': None
-        })
-
     try:
-        social_auth = request.user.social_auth.get(provider='keycloak')
-        access_token = social_auth.extra_data['access_token']
+        # Si el usuario está autenticado, usar su token
+        if request.user.is_authenticated:
+            try:
+                social_auth = request.user.social_auth.get(provider='keycloak')
+                access_token = social_auth.extra_data['access_token']
+                
+                print(f"🔄 Usando token de usuario: {request.user.username}")
+                
+                stock_url = "http://stock_backend_api:8081/v1/productos"
+                headers = {
+                    'Authorization': f'Bearer {access_token}',
+                    'Content-Type': 'application/json'
+                }
+                
+                print(f"🔄 Llamando a Stock API con token de usuario...")
+                response = requests.get(stock_url, headers=headers, timeout=10)
+                
+            except Exception as e:
+                print(f"❌ Error con token de usuario: {e}")
+                # Si falla el token del usuario, intentar con client credentials
+                access_token = None
+        else:
+            # Usuario no autenticado - usar client credentials
+            access_token = None
         
-        print(f"🔄 Usando token de usuario: {request.user.username}")
+        # Si no hay token de usuario (no autenticado o falló), usar client credentials
+        if not access_token:
+            from .keycloak_auth import obtener_token_client_credentials
+            access_token = obtener_token_client_credentials()
+            
+            if not access_token:
+                print("❌ No se pudo obtener token para productos")
+                productos = get_productos_prueba("No se pudo autenticar con Stock API")
+            else:
+                stock_url = "http://stock_backend_api:8081/v1/productos"
+                headers = {
+                    'Authorization': f'Bearer {access_token}',
+                    'Content-Type': 'application/json'
+                }
+                
+                print(f"🔄 Llamando a Stock API con client credentials...")
+                response = requests.get(stock_url, headers=headers, timeout=10)
         
-        stock_url = "http://stock_backend_api:8081/v1/productos"
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Content-Type': 'application/json'
-        }
-        
-        print(f"🔄 Llamando a Stock API con token de usuario...")
-        response = requests.get(stock_url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
+        # Procesar respuesta si tenemos token
+        if access_token and response.status_code == 200:
             productos_api = response.json()
-            print(f"✅ {len(productos_api)} productos obtenidos del Stock con token de usuario")
+            print(f"✅ {len(productos_api)} productos obtenidos del Stock")
             
             for producto in productos_api:
                 categoria_principal = 'General'
@@ -208,14 +320,17 @@ def lista_productos(request):
                     'ubicacion_provincia': producto.get('ubicacion', {}).get('provincia', ''),
                 })
         
-        else:
+        elif access_token and response.status_code != 200:
             print(f"❌ Error Stock API: {response.status_code} - {response.text}")
+            productos = get_productos_prueba(f"Error API: {response.status_code}")
             
     except Exception as e:
-        print(f"💥 Error general: {e}")
+        print(f"💥 Error general obteniendo productos: {e}")
         import traceback
         traceback.print_exc()
+        productos = get_productos_prueba(f"Error: {str(e)}")
     
+    # Aplicar filtros
     if query:
         productos = [p for p in productos if query.lower() in p.get('name', '').lower()]
     
@@ -224,14 +339,14 @@ def lista_productos(request):
     
     categorias = sorted(list(set([p.get('category', '') for p in productos if p.get('category')])))
     
-    print(f"📦 Enviando {len(productos)} productos al template para usuario {request.user.username}")
+    print(f"📦 Enviando {len(productos)} productos al template - Usuario: {'Autenticado' if request.user.is_authenticated else 'No autenticado'}")
     
     return render(request, 'portal_compras/productos.html', {
         'productos': productos,
         'categorias': categorias,
         'query': query,
         'categoria_seleccionada': categoria,
-        'user': request.user
+        'user': request.user if request.user.is_authenticated else None
     })
 
 # =============================================================================

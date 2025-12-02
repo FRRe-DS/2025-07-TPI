@@ -58,8 +58,8 @@ class Order(models.Model):
     payment_method = models.CharField(max_length=50, default='credit_card')
     
     # IDs de los servicios externos
-    stock_booking_id = models.IntegerField(null=True, blank=True)
-    logistics_tracking_id = models.IntegerField(null=True, blank=True)
+    stock_booking_id = models.CharField(max_length=100, null=True, blank=True)
+    logistics_tracking_id = models.CharField(max_length=100, null=True, blank=True)
 
     def __str__(self):
         return f"Pedido {self.id} - {self.user.username} - {self.status}"
