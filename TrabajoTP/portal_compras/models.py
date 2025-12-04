@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     phone = models.CharField(max_length=20)
@@ -38,35 +37,23 @@ class ShoppingCart(models.Model):
         self.save()
         return total
 
-# Modelo para los Pedidos
 class Order(models.Model):
-    STATUS_CHOICES = [
-        ('PENDING', 'Pendiente'),
-        ('PROCESSING', 'Procesando'),
-        ('SHIPPED', 'Enviado'),
-        ('DELIVERED', 'Entregado'),
-        ('CANCELLED', 'Cancelado'),
-    ]
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Múltiples órdenes por usuario
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     date = models.DateTimeField(auto_now_add=True)
     total = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    # Información de envío y pago (agregar estos campos)
     delivery_address = models.TextField()
     payment_method = models.CharField(max_length=50, default='credit_card')
+    status = models.CharField(max_length=20, default='PENDING')
     
-    # IDs de los servicios externos
+    # CORREGIR: Cambiar de IntegerField a CharField
     stock_booking_id = models.CharField(max_length=100, null=True, blank=True)
     logistics_tracking_id = models.CharField(max_length=100, null=True, blank=True)
-
-    def __str__(self):
-        return f"Pedido {self.id} - {self.user.username} - {self.status}"
-
+    
     class Meta:
-        ordering = ['-date']  # Ordenar por fecha descendente
-
+        ordering = ['-date']
+    
+    def __str__(self):
+        return f"Pedido {self.id} - {self.user.email} - {self.status}"
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
     productId = models.IntegerField()

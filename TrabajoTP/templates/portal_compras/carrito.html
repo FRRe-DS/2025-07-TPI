@@ -250,7 +250,7 @@
                         }
                     });
 
-                    const response = await fetch('/api/shopcart/checkout', {
+                    const response = await fetch('/api/shopcart/checkout/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -381,7 +381,7 @@
                 confirmBtn.textContent = '⏳ Procesando...';
                 confirmBtn.disabled = true;
 
-                const response = await fetch('/api/shopcart/checkout', {
+                const response = await fetch('/api/shopcart/checkout/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

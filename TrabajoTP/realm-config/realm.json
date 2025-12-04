@@ -535,7 +535,7 @@
       "name": "Cliente del grupo 07",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
-      "secret": "tdSnJM8CsPPl6dJW4Tq6k9JWnSqndkfH",
+      "secret": "eHABZewNbvQkaULLbzgVZnufpigL5a9K",
       "redirectUris": [
         "*"
       ],
@@ -545,6 +545,8 @@
       "defaultClientScopes": [
         "usuarios:read",
         "productos:read",
+        "compras:read", 
+        "compras:write", 
         "envios:write",
         "envios:read",
         "reservas:read",

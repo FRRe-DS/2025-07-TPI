@@ -41,7 +41,7 @@ def index(request):
             print("🔄 Home: Usando client credentials")
         
         if access_token:
-            stock_url = "http://stock_backend_api:8081/v1/productos"
+            stock_url = "https://stock.mmalgor.com.ar/v1/productos"
             headers = {
                 'Authorization': f'Bearer {access_token}',
                 'Content-Type': 'application/json'
@@ -126,7 +126,7 @@ def registro_view(request):
     keycloak_registro_url = (
         f"{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}/"
         f"protocol/openid-connect/registrations"
-        f"?client_id={KEYCLOAK_CLIENT_ID}&response_type=code&scope=openid profile email&redirect_uri=http://localhost:8000/social-auth/complete/keycloak/"
+        f"?client_id={KEYCLOAK_CLIENT_ID}&response_type=code&scope=openid profile email&redirect_uri=https://keycloak.mmalgor.com.ar//social-auth/complete/keycloak/"
     )
     return redirect(keycloak_registro_url)
 
@@ -160,17 +160,58 @@ def shopcart_view(request):
     try:
         carrito = get_user_cart(request.user)
         
+        # Transformar los datos al formato que espera el template
+        items_formateados = []
+        total_calculado = 0
+        
+        for item in carrito.items:
+            # Obtener datos originales
+            cantidad = item.get('cantidad', 0)
+            precio = item.get('producto', {}).get('price', 0)
+            subtotal = cantidad * precio
+            
+            # Sumar al total
+            total_calculado += subtotal
+            
+            # Crear item formateado
+            items_formateados.append({
+                'productId': item.get('producto_id'),
+                'quantity': cantidad,
+                'product': {
+                    'id': item.get('producto', {}).get('id'),
+                    'name': item.get('producto', {}).get('name'),
+                    'price': precio,
+                    'description': item.get('producto', {}).get('description'),
+                    'imagen_url': item.get('producto', {}).get('imagen_url')
+                },
+                'subtotal': subtotal
+            })
+        
+        # También calcular usando el método del carrito por si acaso
+        carrito_total = carrito.calculate_total()
+        
+        print(f"🛒 DEBUG - Total calculado manualmente: {total_calculado}")
+        print(f"🛒 DEBUG - Total del carrito.calculate_total(): {carrito_total}")
+        
+        # Usar el mayor de los dos totales (o el manual si hay diferencia)
+        total_final = max(total_calculado, carrito_total)
+        
         carrito_data = {
-            'items': carrito.items,
-            'total': carrito.calculate_total()
+            'items': items_formateados,
+            'total': total_final
         }
+        
+        # Actualizar el total en la base de datos
+        if total_calculado != carrito_total:
+            print(f"🛒 AJUSTANDO total en BD: {carrito_total} -> {total_calculado}")
+            carrito.total = total_calculado
+            carrito.save()
         
     except Exception as e:
         print(f"❌ Error en shopcart_view: {e}")
+        import traceback
+        traceback.print_exc()
         carrito_data = {'items': [], 'total': 0}
-    
-    for item in carrito_data['items']:
-        item['subtotal'] = item.get('quantity', 0) * item.get('product', {}).get('price', 0)
     
     return render(request, 'portal_compras/carrito.html', {
         'carrito': carrito_data,
@@ -187,21 +228,10 @@ def orders_view(request):
             
             orders = Order.objects.filter(user=request.user).prefetch_related('items').order_by('-date')
             
-            all_product_ids = set()
-            order_items_map = {}
+            print(f"📦 Órdenes encontradas: {orders.count()}")
             
             for order in orders:
-                order_items_map[order.id] = list(order.items.all())
-                for item in order_items_map[order.id]:
-                    all_product_ids.add(item.productId)
-            
-            productos_info = {}
-            for product_id in all_product_ids:
-                producto_info = obtener_info_producto_para_orden(request, product_id)
-                if producto_info:
-                    productos_info[product_id] = producto_info
-            
-            for order in orders:
+                print(f"🔍 Procesando orden #{order.id} con {order.items.count()} items")
                 order_data = {
                     'id': order.id,
                     'date': order.date.isoformat(),
@@ -212,28 +242,43 @@ def orders_view(request):
                     'items': []
                 }
                 
-                for item in order_items_map[order.id]:
-                    producto_info = productos_info.get(item.productId, {
-                        'id': item.productId,
-                        'name': f'Producto {item.productId}',
-                        'price': float(item.price),
-                        'description': '',
-                        'imagen_url': ''
-                    })
+                for item in order.items.all():
+                    print(f"   📋 Item: productId={item.productId}, quantity={item.quantity}, price={item.price}")
+                    
+                    # Intentar obtener nombre real del producto
+                    producto_info = obtener_info_producto_para_orden(request, item.productId)
+                    
+                    print(f"   🔍 producto_info obtenido: {producto_info}")
+                    
+                    if not producto_info:
+                        # Si no se puede obtener, usar datos básicos
+                        producto_info = {
+                            'id': item.productId,
+                            'name': f'Producto {item.productId}',
+                            'price': float(item.price),
+                            'description': ''
+                        }
+                        print(f"   ⚠️ Usando datos básicos: {producto_info['name']}")
+                    
+                    subtotal = item.quantity * float(item.price)
                     
                     order_data['items'].append({
                         'productId': item.productId,
                         'quantity': item.quantity,
+                        'subtotal': subtotal,
                         'product': producto_info
                     })
+                    print(f"   ✅ Item agregado: {producto_info.get('name')}")
                 
                 orders_data.append(order_data)
+                print(f"✅ Orden #{order.id} procesada con {len(order_data['items'])} items")
                 
         except Exception as e:
             print(f"❌ Error en orders_view: {e}")
             import traceback
             traceback.print_exc()
     
+    print(f"📊 Total de órdenes a mostrar: {len(orders_data)}")
     return render(request, 'portal_compras/ordenes.html', {
         'orders': orders_data,
         'user': request.user if request.user.is_authenticated else None
@@ -254,7 +299,7 @@ def lista_productos(request):
                 
                 print(f"🔄 Usando token de usuario: {request.user.username}")
                 
-                stock_url = "http://stock_backend_api:8081/v1/productos"
+                stock_url = "https://stock.mmalgor.com.ar/v1/productos"
                 headers = {
                     'Authorization': f'Bearer {access_token}',
                     'Content-Type': 'application/json'
@@ -280,7 +325,7 @@ def lista_productos(request):
                 print("❌ No se pudo obtener token para productos")
                 productos = get_productos_prueba("No se pudo autenticar con Stock API")
             else:
-                stock_url = "http://stock_backend_api:8081/v1/productos"
+                stock_url = "https://stock.mmalgor.com.ar/v1/productos"
                 headers = {
                     'Authorization': f'Bearer {access_token}',
                     'Content-Type': 'application/json'
@@ -416,20 +461,30 @@ def obtener_token_usuario(request):
 
 def obtener_info_producto_para_orden(request, producto_id):
     """Obtener información real del producto para mostrar en órdenes"""
+    print(f"🔍 obtener_info_producto_para_orden - ID: {producto_id}")
+    
     try:
-        social_auth = request.user.social_auth.get(provider='keycloak')
-        access_token = social_auth.extra_data['access_token']
+        # Obtener token del usuario
+        access_token = obtener_token_usuario(request)
+        print(f"🔍 Token obtenido: {bool(access_token)}")
         
-        stock_url = f"{settings.STOCK_API_URL}/productos/{producto_id}"
+        if not access_token:
+            print(f"❌ No se pudo obtener token para producto {producto_id}")
+            return None
+        
+        stock_url = f"https://stock.mmalgor.com.ar/v1/productos/{producto_id}"
         headers = {
             'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json'
         }
         
+        print(f"🔍 Consultando: {stock_url}")
         response = requests.get(stock_url, headers=headers, timeout=10)
+        print(f"🔍 Respuesta API: {response.status_code}")
         
         if response.status_code == 200:
             producto_data = response.json()
+            print(f"✅ Producto obtenido: {producto_data.get('nombre', 'Sin nombre')}")
             
             imagen_principal = None
             if producto_data.get('imagenes') and len(producto_data['imagenes']) > 0:
@@ -440,21 +495,26 @@ def obtener_info_producto_para_orden(request, producto_id):
                 if not imagen_principal:
                     imagen_principal = producto_data['imagenes'][0].get('url')
             
+            nombre = producto_data.get('nombre', f'Producto {producto_id}')
+            print(f"🔍 Nombre extraído: {nombre}")
+            
             return {
                 'id': producto_data.get('id'),
-                'name': producto_data.get('nombre'),
+                'name': nombre,
                 'price': float(producto_data.get('precio', 0)),
                 'description': producto_data.get('descripcion', ''),
                 'imagen_url': imagen_principal
             }
         else:
-            print(f"❌ Error API Stock para orden: {response.status_code}")
+            print(f"❌ Error API Stock: {response.status_code} - {response.text}")
             return None
             
     except Exception as e:
-        print(f"❌ Error obteniendo producto para orden: {e}")
+        print(f"❌ Error obteniendo producto {producto_id}: {e}")
+        import traceback
+        traceback.print_exc()
         return None
-
+    
 def get_productos_prueba(mensaje_error=""):
     """Productos de prueba si falla la API"""
     return [{
@@ -498,26 +558,53 @@ def api_obtener_carrito(request):
             "error": f"Error al obtener carrito: {str(e)}"
         }, status=500)
 
-@keycloak_login_required
+# En views.py - REEMPLAZA la función completa
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+import json
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def api_agregar_al_carrito(request):
     """API protegida: Agregar producto al carrito SOLO del usuario actual"""
     if request.method == 'POST':
         try:
-            data = json.loads(request.body)
+            # Usar request.data (DRF ya parseó el JSON)
+            data = request.data
             
-            producto_id = data.get('producto_id')
-            cantidad = data.get('cantidad', 1)
+            # Aceptar ambos formatos: inglés (productId) y español (producto_id)
+            producto_id = data.get('productId') or data.get('producto_id')
+            cantidad = data.get('quantity') or data.get('cantidad', 1)
+            
+            print(f"🔔 Producto ID recibido: {producto_id}")
+            print(f"🔔 Cantidad recibida: {cantidad}")
             
             if not producto_id:
-                return JsonResponse({"error": "producto_id es requerido"}, status=400)
+                return JsonResponse({
+                    "error": "producto_id es requerido",
+                    "message": "Debe enviar 'productId' o 'producto_id' en el cuerpo JSON"
+                }, status=400)
             
             carrito = get_user_cart(request.user)
             
+            # Obtener información del producto
             producto_info = obtener_info_producto_para_orden(request, producto_id)
+            
+            # Si no se pudo obtener, usar datos básicos
+            if not producto_info:
+                producto_info = {
+                    'id': producto_id,
+                    'nombre': f'Producto {producto_id}',
+                    'precio': 0.0,
+                    'descripcion': 'Información no disponible',
+                    'imagenes': []
+                }
             
             producto_existente = None
             for i, item in enumerate(carrito.items):
-                if item.get('producto_id') == producto_id:
+                if item.get('producto_id') == producto_id or item.get('productId') == producto_id:
                     producto_existente = i
                     break
             
@@ -542,16 +629,115 @@ def api_agregar_al_carrito(request):
             return JsonResponse({
                 "status": "success",
                 "message": "Producto agregado al carrito",
-                "cliente": KEYCLOAK_CLIENT_ID,
-                "usuario": request.user.username
+                "producto_id": producto_id,
+                "cantidad": cantidad,
+                "carrito": {
+                    "items": carrito.items,
+                    "total": float(carrito.total),
+                    "cantidad_items": len(carrito.items)
+                }
             })
             
         except Exception as e:
+            print(f"❌ Error al agregar al carrito: {e}")
+            import traceback
+            traceback.print_exc()
             return JsonResponse({
                 "error": f"Error al agregar al carrito: {str(e)}"
             }, status=500)
     
     return JsonResponse({"error": "Método no permitido"}, status=405)
+def obtener_info_producto_para_orden(request, producto_id):
+    """Obtener información real del producto para mostrar en órdenes y carrito"""
+    try:
+        # Obtener token del usuario
+        access_token = obtener_token_usuario(request)
+        if not access_token:
+            print(f"❌ No se pudo obtener token para producto {producto_id}")
+            return None
+        
+        stock_url = f"https://stock.mmalgor.com.ar/v1/productos/{producto_id}"
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.get(stock_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            producto_data = response.json()
+            
+            # Extraer categoría principal
+            categoria_principal = 'General'
+            if producto_data.get('categorias') and len(producto_data['categorias']) > 0:
+                categoria_principal = producto_data['categorias'][0].get('nombre', 'General')
+            
+            # Extraer imagen principal
+            imagen_principal = None
+            if producto_data.get('imagenes') and len(producto_data['imagenes']) > 0:
+                for img in producto_data['imagenes']:
+                    if img.get('esPrincipal'):
+                        imagen_principal = img.get('url')
+                        break
+                if not imagen_principal:
+                    imagen_principal = producto_data['imagenes'][0].get('url')
+            
+            return {
+                'id': producto_data.get('id'),
+                'nombre': producto_data.get('nombre'),
+                'precio': float(producto_data.get('precio', 0)),
+                'descripcion': producto_data.get('descripcion', ''),
+                'categoria': categoria_principal,
+                'imagenes': producto_data.get('imagenes', []),
+                'imagen_url': imagen_principal,
+                'stock': producto_data.get('stockDisponible', 0)
+            }
+        else:
+            print(f"❌ Error API Stock para producto {producto_id}: {response.status_code}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error obteniendo producto {producto_id}: {e}")
+        return None
+
+# # Añade esta función auxiliar en views.py
+# def obtener_info_producto_para_orden_con_token(access_token, producto_id):
+#     """Obtener información del producto usando un token específico"""
+#     try:
+#         stock_url = f"https://stock.mmalgor.com.ar/v1/productos/{producto_id}"
+#         headers = {
+#             'Authorization': f'Bearer {access_token}',
+#             'Content-Type': 'application/json'
+#         }
+        
+#         response = requests.get(stock_url, headers=headers, timeout=10)
+        
+#         if response.status_code == 200:
+#             producto_data = response.json()
+            
+#             imagen_principal = None
+#             if producto_data.get('imagenes') and len(producto_data['imagenes']) > 0:
+#                 for img in producto_data['imagenes']:
+#                     if img.get('esPrincipal'):
+#                         imagen_principal = img.get('url')
+#                         break
+#                 if not imagen_principal:
+#                     imagen_principal = producto_data['imagenes'][0].get('url')
+            
+#             return {
+#                 'id': producto_data.get('id'),
+#                 'nombre': producto_data.get('nombre'),
+#                 'precio': float(producto_data.get('precio', 0)),
+#                 'descripcion': producto_data.get('descripcion', ''),
+#                 'imagenes': producto_data.get('imagenes', [])
+#             }
+#         else:
+#             print(f"❌ Error API Stock para producto {producto_id}: {response.status_code}")
+#             return None
+            
+#     except Exception as e:
+#         print(f"❌ Error obteniendo producto: {e}")
+#         return None
 
 @keycloak_login_required
 def api_limpiar_carrito(request):
@@ -669,7 +855,7 @@ def api_obtener_ordenes_usuario(request):
 def productos_stock(request):
     """API protegida: Proxy para productos del equipo Stock"""
     try:
-        response = requests.get("http://localhost:8081/v1/productos", timeout=10)
+        response = requests.get("https://stock.mmalgor.com.ar/v1/productos", timeout=10)
         
         if response.status_code == 200:
             return JsonResponse({

@@ -191,7 +191,7 @@ def shopcart_get(request):
 @permission_classes([IsAuthenticated])
 def shopcart_update(request):
     """
-    POST/PUT /api/shopcart - Agregar/actualizar item en carrito
+    POST/PUT /api/shopcart/items/ - Agregar/actualizar item en carrito
     Body: {"productId": 1, "quantity": 2}
     """
     cart, created = ShoppingCart.objects.get_or_create(user=request.user)
@@ -358,6 +358,7 @@ def checkout_api(request):
         # 1. Obtener el carrito del usuario
         cart, created = ShoppingCart.objects.get_or_create(user=request.user)
         print(f"🛒 Carrito obtenido: {len(cart.items)} items")
+        print(f"🛒 Items del carrito: {cart.items}")
         
         if not cart.items:
             print("❌ Carrito vacío")
@@ -396,7 +397,11 @@ def checkout_api(request):
         print(f"✅ Reserva creada: {reserva_resultado.get('reserva_id')}")
         
         # 4. Crear la orden en nuestra base de datos
-        total = sum(item['quantity'] * item['product']['price'] for item in cart.items)
+        total = sum(
+            (item.get('cantidad', 0) * item.get('producto', {}).get('price', 0)) or 
+            (item.get('quantity', 0) * item.get('product', {}).get('price', 0))
+            for item in cart.items
+        )
         print(f"💰 Total calculado: {total}")
         
         order = Order.objects.create(
@@ -411,11 +416,18 @@ def checkout_api(request):
         
         # 5. Crear los items de la orden
         for cart_item in cart.items:
+            # Obtener precio del producto
+            precio = (
+                cart_item.get('producto', {}).get('price') or 
+                cart_item.get('product', {}).get('price') or 
+                0
+            )
+            
             OrderItem.objects.create(
                 order=order,
-                productId=cart_item['productId'],
-                quantity=cart_item['quantity'],
-                price=cart_item['product']['price']
+                productId=cart_item.get('producto_id') or cart_item.get('productId'),
+                quantity=cart_item.get('cantidad') or cart_item.get('quantity', 1),
+                price=precio
             )
         print(f"✅ Items de orden creados: {len(cart.items)}")
         
@@ -451,7 +463,7 @@ def checkout_api(request):
             'error': f'Error al procesar el checkout: {str(e)}',
             'code': 'CHECKOUT_ERROR'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+    
 # ✅ FUNCIÓN PARA RESERVAR PRODUCTOS EN STOCK
 def reservar_productos_stock(request, items):
     """
@@ -698,7 +710,7 @@ def obtener_reservas_usuario(request):
 def crear_reserva_stock(request, items, delivery_address):
     """Crear una reserva en el servicio Stock para los productos del carrito"""
     print(f"🔍 INICIANDO crear_reserva_stock")
-    print(f"🔍 Items: {items}")
+    print(f"🔍 Items recibidos: {items}")
     print(f"🔍 User ID: {request.user.id}")
     
     try:
@@ -712,16 +724,22 @@ def crear_reserva_stock(request, items, delivery_address):
         compra_id = f"COMPRA-PORTAL-{random.randint(100, 999):03d}"
         print(f"🔍 Compra ID: {compra_id}")
         
-        # Preparar datos
+        # Preparar datos - USAR LOS NOMBRES CORRECTOS
         productos_data = []
         for item in items:
+            # IMPORTANTE: Los items pueden tener 'productId' o 'producto_id'
+            producto_id = item.get('productId') or item.get('producto_id')
+            cantidad = item.get('quantity') or item.get('cantidad', 1)
+            
+            print(f"🔍 Procesando item: producto_id={producto_id}, cantidad={cantidad}")
+            
             producto_data = {
-                'productoId': item['productId'],
-                'cantidad': item['quantity'],
-                'precioUnitario': str(item['product']['price'])
+                'productoId': producto_id,  # Usar el nombre que espera la API Stock
+                'cantidad': cantidad,
+                'precioUnitario': str(item.get('product', {}).get('price') or item.get('producto', {}).get('price', 0))
             }
             productos_data.append(producto_data)
-            print(f"🔍 Producto: {producto_data}")
+            print(f"🔍 Producto preparado: {producto_data}")
         
         reserva_data = {
             'idCompra': compra_id,
@@ -769,14 +787,13 @@ def crear_reserva_stock(request, items, delivery_address):
             }
             
     except Exception as e:
-        print(f"💥 EXCEPCIÓN: {e}")
+        print(f"💥 EXCEPCIÓN en crear_reserva_stock: {e}")
         import traceback
         traceback.print_exc()
         return {
             'success': False,
             'error': f'Error inesperado: {str(e)}'
         }
-
 # DEBERIAMOS USAR UUID EN VEZ DE ID NUMERICO?
 # def crear_reserva_stock(request, items, delivery_address):
 #     """Crear una reserva en el servicio Stock para los productos del carrito"""

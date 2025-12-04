@@ -58,10 +58,10 @@ services:
       - DB_PASS=${DB_PASS}
       - DB_HOST=${DB_HOST}
       - DB_PORT=5432
-      - KEYCLOAK_SERVER_URL=http://keycloak:8080
+      - KEYCLOAK_SERVER_URL=https://keycloak.mmalgor.com.ar
       - KEYCLOAK_REALM=ds-2025-realm
       - KEYCLOAK_CLIENT_ID=grupo-07
-      - KEYCLOAK_CLIENT_SECRET=tdSnJM8CsPPl6dJW4Tq6k9JWnSqndkfH
+      - KEYCLOAK_CLIENT_SECRET=eHABZewNbvQkaULLbzgVZnufpigL5a9K
     depends_on:
       - db
       - keycloak
@@ -81,11 +81,11 @@ services:
       DB_NAME: postgres
       DB_USER: postgres.vzabfnzrcynffhdjdddv
       DB_PASSWORD: TNNczJndvipl7Kgk
-      KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/ds-2025-realm
+      KEYCLOAK_ISSUER_URL: https://keycloak.mmalgor.com.ar/realms/ds-2025-realm
       KEYCLOAK_AUDIENCE: grupo-05
     depends_on:
       - keycloak
-    networks:  # ✅ YA TIENE
+    networks:
       - tpi_network
     restart: unless-stopped
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Cargar variables del archivo .env
+load_dotenv() 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -37,7 +37,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'social_django.middleware.SocialAuthExceptionMiddleware',  # Middleware para social auth
+    'social_django.middleware.SocialAuthExceptionMiddleware', 
 ]
 
 ROOT_URLCONF = 'TrabajoTP.urls'
@@ -65,10 +65,13 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'postgres',  # Nombre de BD de Supabase
-        'USER': 'postgres.vzabfnzrcynffhdjdddv',  # Tu usuario de Supabase
-        'PASSWORD': 'TNNczJndvipl7Kgk',  # Tu password de Supabase
-        'HOST': 'aws-1-us-east-2.pooler.supabase.com',  # Host de Supabase
+        'USER': 'postgres.sfafthgxbgemqrglrnkc',  # Tu usuario de Supabase
+        'PASSWORD': 'compras2025',  # Tu password de Supabase
+        'HOST': 'aws-1-us-east-1.pooler.supabase.com',  # Host de Supabase
         'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'require',  # Importante para conectarse a Supabase
+        }
     }
 }
 
@@ -103,7 +106,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # =============================================================================
 
 # Configuración Keycloak
-KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL', 'http://keycloak:8080')
+KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL', 'https://keycloak.mmalgor.com.ar')
 KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', 'ds-2025-realm')
 KEYCLOAK_CLIENT_ID = os.getenv('KEYCLOAK_CLIENT_ID', 'grupo-07')
 KEYCLOAK_CLIENT_SECRET = os.getenv('KEYCLOAK_CLIENT_SECRET', 'eHABZewNbvQkaULLbzgVZnufpigL5a9K')
@@ -111,7 +114,12 @@ KEYCLOAK_CLIENT_SECRET = os.getenv('KEYCLOAK_CLIENT_SECRET', 'eHABZewNbvQkaULLbz
 # Configuración para Stock API (grupo-05)
 STOCK_API_CLIENT_ID = 'grupo-05'
 STOCK_API_CLIENT_SECRET = '9e676dd4-2790-4191-9f1f-06c6c6fd71e5'
-STOCK_API_URL = 'http://stock_backend_api:8081/v1'
+STOCK_API_URL = 'https://stock.mmalgor.com.ar/v1'
+
+# Configuración para Stock API (grupo-05)
+LOGI_API_CLIENT_ID = 'grupo-12'
+LOGI_API_CLIENT_SECRET = '9e676dd4-2790-4191-9f1f-06c6c6fd71e5'
+LOGI_API_URL = 'https:/apilogistica.mmalgor.com.ar/v1'
 
 # =============================================================================
 # CONFIGURACIÓN SOCIAL AUTH - CORREGIDA
@@ -179,6 +187,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:8080",
+    "https://compras.mmalgor.com.ar",
+    "https://stock.mmalgor.com.ar",
+    "https://apilogistica.mmalgor.com.ar",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

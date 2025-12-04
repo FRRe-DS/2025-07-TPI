@@ -166,7 +166,7 @@
 
             try {
                 console.log("📦 Enviando request al carrito...");
-                const response = await fetch('/api/shopcart/items', {
+                const response = await fetch('/api/shopcart/items/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -203,7 +203,7 @@
             }
             
             try {
-                const response = await fetch('/api/shopcart', {
+                const response = await fetch('/api/shopcart/', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -228,8 +228,14 @@
                 console.log('💥 Error cargando carrito:', error);
             }
         }
-
+        
         document.addEventListener('DOMContentLoaded', actualizarContadorCarrito);
     </script>
+    {% if auth_token %}
+    <script>
+        console.log("Guardando token de Keycloak en localStorage...");
+        localStorage.setItem('authToken', "{{ auth_token }}");
+    </script>
+    {% endif %}
 </body>
 </html>

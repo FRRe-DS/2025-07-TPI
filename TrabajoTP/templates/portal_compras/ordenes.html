@@ -66,12 +66,12 @@
                         {% for item in order.items %}
                         <div class="producto-item">
                             <div>
-                                <strong>{{ item.product.name }}</strong>
+                                <strong>{{ item.product.nombre }}</strong>
                                 <br>
                                 <small>Cantidad: {{ item.quantity }}</small>
                             </div>
                             <div style="text-align: right;">
-                                <strong>${{ item.product.price|floatformat:2 }} c/u</strong>
+                                <strong>${{ item.product.precio|floatformat:2 }} c/u</strong>
                                 <br>
                                 <small>Subtotal: ${{ item.subtotal|floatformat:2 }}</small>
                             </div>
@@ -140,7 +140,7 @@
             if (!token) return;
             
             try {
-                const response = await fetch('/api/shopcart', {
+                const response = await fetch('/api/shopcart/', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
