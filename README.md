@@ -38,17 +38,17 @@ El objetivo principal es simular un entorno real de e-commerce donde interactúa
 
 ---
 
-<a name="arquitectura"></a>
+
 ## 🏗 Arquitectura del Sistema
 El proyecto se basa en una Arquitectura Distribuida (o orientada a microservicios), donde el sistema global se divide en módulos independientes que se comunican vía red.
 
 Modelo: Cliente-Servidor.
 Patrón de Comunicación: APIs RESTful sobre HTTP.
 Componentes:
-    Portal de Compras (Nuestro Subsistema): Interfaz para el usuario y orquestador de pedidos.
-    Stock: Gestión de inventario.
-    Logística: Gestión de envíos.
-<a name="estructura"></a>
+    -Portal de Compras (Nuestro Subsistema): Interfaz para el usuario y orquestador de pedidos.
+    -Stock: Gestión de inventario.
+    -Logística: Gestión de envíos.
+    
 ## 📂 Estructura del Repositorio
 ```mermaid
 graph TD
