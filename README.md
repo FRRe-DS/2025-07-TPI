@@ -45,9 +45,9 @@ El proyecto se basa en una Arquitectura Distribuida (o orientada a microservicio
 Modelo: Cliente-Servidor.
 Patrón de Comunicación: APIs RESTful sobre HTTP.
 Componentes
-    -Portal de Compras: Interfaz para el usuario.
-    -Stock: Gestión de inventario.
-    -Logística: Gestión de envíos.
+    1.Portal de Compras: Interfaz para el usuario.
+    2.Stock: Gestión de inventario.
+    2.Logística: Gestión de envíos.
     
 ## 📂 Estructura del Repositorio
 
