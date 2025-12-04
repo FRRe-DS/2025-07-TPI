@@ -10,9 +10,9 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-x9wu4d!r_v((1rkmqpj#_p4gtsujfx&tybwbte-x!v_mzo(!vz'
-DEBUG = True
-ALLOWED_HOSTS = ['*']  # Permite todos los hosts en desarrollo
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -64,13 +64,13 @@ WSGI_APPLICATION = 'TrabajoTP.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',  # Nombre de BD de Supabase
-        'USER': 'postgres.sfafthgxbgemqrglrnkc',  # Tu usuario de Supabase
-        'PASSWORD': 'compras2025',  # Tu password de Supabase
-        'HOST': 'aws-1-us-east-1.pooler.supabase.com',  # Host de Supabase
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASS'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT', '5432'),
         'OPTIONS': {
-            'sslmode': 'require',  # Importante para conectarse a Supabase
+            'sslmode': 'require',
         }
     }
 }
@@ -105,21 +105,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CONFIGURACIÓN KEYCLOAK - CORREGIDA
 # =============================================================================
 
-# Configuración Keycloak
-KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL', 'https://keycloak.mmalgor.com.ar')
-KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', 'ds-2025-realm')
-KEYCLOAK_CLIENT_ID = os.getenv('KEYCLOAK_CLIENT_ID', 'grupo-07')
-KEYCLOAK_CLIENT_SECRET = os.getenv('KEYCLOAK_CLIENT_SECRET', 'eHABZewNbvQkaULLbzgVZnufpigL5a9K')
+# Configuración Keycloak - NADA hardcodeado
+KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL')
+KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM')
+KEYCLOAK_CLIENT_ID = os.getenv('KEYCLOAK_CLIENT_ID')
+KEYCLOAK_CLIENT_SECRET = os.getenv('KEYCLOAK_CLIENT_SECRET')
 
-# Configuración para Stock API (grupo-05)
-STOCK_API_CLIENT_ID = 'grupo-05'
-STOCK_API_CLIENT_SECRET = '9e676dd4-2790-4191-9f1f-06c6c6fd71e5'
-STOCK_API_URL = 'https://stock.mmalgor.com.ar/v1'
+# Configuración para APIs externas
+STOCK_API_CLIENT_ID = os.getenv('STOCK_API_CLIENT_ID')
+STOCK_API_CLIENT_SECRET = os.getenv('STOCK_API_CLIENT_SECRET')
+STOCK_API_URL = os.getenv('STOCK_API_URL')
 
-# Configuración para Stock API (grupo-05)
-LOGI_API_CLIENT_ID = 'grupo-12'
-LOGI_API_CLIENT_SECRET = 'YvbipscmtKw8kNE7XjjvOoksdTn9HcsU'
-LOGI_API_URL = 'https://apilogistica.mmalgor.com.ar/'
+LOGI_API_CLIENT_ID = os.getenv('LOGI_API_CLIENT_ID')
+LOGI_API_CLIENT_SECRET = os.getenv('LOGI_API_CLIENT_SECRET')
+LOGI_API_URL = os.getenv('LOGI_API_URL')
 
 # =============================================================================
 # CONFIGURACIÓN SOCIAL AUTH - CORREGIDA

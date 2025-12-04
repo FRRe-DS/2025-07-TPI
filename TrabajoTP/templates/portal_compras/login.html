@@ -69,7 +69,7 @@
             </div>
 
             <!-- Único botón - Keycloak -->
-            <a href="{% url 'social:begin' 'keycloak' %}?next={{ request.GET.next|default:'/' }}" class="btn-keycloak">
+            <a href="{% url 'social:begin' 'keycloak' %}?next={{ request.GET.next|default:'/api/' }}" class="btn-keycloak">
                 🔐 Iniciar Sesión con Keycloak
             </a>
 
