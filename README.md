@@ -42,7 +42,7 @@ El objetivo principal es simular un entorno real de e-commerce donde interactúa
 
 El diseño sigue una arquitectura en capas para asegurar la escalabilidad y mantenibilidad del código.
 <a name="estructura"></a>
-📂 Estructura del Repositorio
+## 📂 Estructura del Repositorio
 Archivo,Descripción
 main.py,Punto de entrada principal. Inicializa el sistema completo.
 portal.py,Interfaz de usuario para simulación de compras.
@@ -54,7 +54,7 @@ Trabajo TP/,Carpeta con archivos de configuración Docker y documentación.
 
 <a name="instalacion"></a>
 
-🚀 Instalación y Despliegue
+## 🚀 Instalación y Despliegue
 Ofrecemos dos formas de ejecutar el proyecto: localmente con Python o mediante Docker.
 
 Opción A: Ejecución con Docker (Recomendada)
@@ -77,7 +77,7 @@ source venv/bin/activate  # Linux/Mac
 python main.py
 <a name="modulos"></a>
 
-🧩 Módulos y Funcionalidades
+## 🧩 Módulos y Funcionalidades
 🛒 Portal de Ventas
 Permite a los usuarios visualizar el catálogo de productos disponibles y realizar pedidos. Se comunica exclusivamente con la capa lógica para confirmar transacciones.
 
@@ -101,7 +101,7 @@ Las transacciones se registren adecuadamente.
 
 <a name="tecnologias"></a>
 
-🛠 Tecnologías
+## 🛠 Tecnologías
 Categoría,Tecnología,Uso
 Lenguaje,,Lógica de backend y scripts.
 Infraestructura,,Containerización y entorno reproducible.
