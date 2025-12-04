@@ -53,7 +53,7 @@ class LogisticaService:
         """Crea un tracking en el servicio Logística"""
         try:
             response = requests.post(
-                f"{settings.LOGISTICA_API_URL}/api/logistics/tracking",
+                f"{settings.LOGI_API_URL}/shipping",
                 json=datos_tracking,
                 timeout=5
             )

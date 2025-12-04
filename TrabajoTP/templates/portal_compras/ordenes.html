@@ -44,6 +44,23 @@
             
             {% if orders %}
                 {% for order in orders %}
+                {% if order.shipping_id %}
+                <div class="shipping-info">
+                    <p><strong>📦 Envío ID:</strong> {{ order.shipping_id|truncatechars:15 }}</p>
+                    
+                    {% if order.shipping_idtracking_number %}
+                    <p><strong>Número de seguimiento:</strong> {{ order.shipping_id }}</p>
+                    {% endif %}
+                    
+                    {% if order.estimated_delivery %}
+                    <p><strong>Entrega estimada:</strong> {{ order.estimated_delivery|date:"d/m/Y" }}</p>
+                    {% endif %}
+                    
+                    {% if order.shipping_cost %}
+                    <p><strong>Costo de envío:</strong> ${{ order.shipping_cost }} {{ order.shipping_currency }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
                 <div class="orden-item">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
                         <div>

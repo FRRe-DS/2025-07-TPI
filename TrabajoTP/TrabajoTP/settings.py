@@ -118,8 +118,8 @@ STOCK_API_URL = 'https://stock.mmalgor.com.ar/v1'
 
 # Configuración para Stock API (grupo-05)
 LOGI_API_CLIENT_ID = 'grupo-12'
-LOGI_API_CLIENT_SECRET = '9e676dd4-2790-4191-9f1f-06c6c6fd71e5'
-LOGI_API_URL = 'https://apilogistica.mmalgor.com.ar/v1'
+LOGI_API_CLIENT_SECRET = 'YvbipscmtKw8kNE7XjjvOoksdTn9HcsU'
+LOGI_API_URL = 'https://apilogistica.mmalgor.com.ar/'
 
 # =============================================================================
 # CONFIGURACIÓN SOCIAL AUTH - CORREGIDA
@@ -164,9 +164,9 @@ SOCIAL_AUTH_KEYCLOAK_EXTRA_DATA = [
 ]
 
 # Configuración general de Social Auth
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/'
 SOCIAL_AUTH_LOGIN_ERROR_URL = '/login-error/'
-SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/'
 SOCIAL_AUTH_USER_FIELDS = ['email', 'username']
 
 # Para desarrollo - deshabilitar verificaciones estrictas
@@ -233,8 +233,8 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 # =============================================================================
 
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/api/'
+LOGOUT_REDIRECT_URL = '/api/'
 
 # =============================================================================
 # LOGGING PARA DEBUG

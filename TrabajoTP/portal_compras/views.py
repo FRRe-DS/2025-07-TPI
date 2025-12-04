@@ -219,46 +219,66 @@ def shopcart_view(request):
     })
 
 def orders_view(request):
-    """Vista para el historial de órdenes - SOLO del usuario autenticado"""
+    """Vista para el historial de órdenes"""
     orders_data = []
     
     if request.user.is_authenticated:
         try:
             from .models import Order, OrderItem
+            from django.utils import timezone
+            from datetime import timedelta
             
             orders = Order.objects.filter(user=request.user).prefetch_related('items').order_by('-date')
             
-            print(f"📦 Órdenes encontradas: {orders.count()}")
-            
             for order in orders:
-                print(f"🔍 Procesando orden #{order.id} con {order.items.count()} items")
+                datos_envio = None
+                # ✅ ACTUALIZAR ESTADO SOLO CON SHIPPING_ID
+                if order.logistics_tracking_id and order.status in ['PENDING', 'PROCESSING', 'IN_TRANSIT']:
+                    print(f"   🔄 Consultando estado para shipping_id: {order.logistics_tracking_id}")
+                    
+                    datos_envio = consultar_estado_envio_logistica(order.logistics_tracking_id)
+                    
+                    if datos_envio:
+                        estado_logistica = datos_envio.get('status')
+                        estado_mapeado = mapear_estado_logistica(estado_logistica)
+                        
+                        if estado_mapeado and estado_mapeado != order.status:
+                            print(f"   ✅ Estado actualizado: {order.status} → {estado_mapeado}")
+                            order.status = estado_mapeado
+                            order.save()
+                
+                # Construir datos de la orden
                 order_data = {
                     'id': order.id,
                     'date': order.date.isoformat(),
                     'status': order.status,
+                    'status_display': obtener_display_estado(order.status),
                     'total': float(order.total),
                     'delivery_address': order.delivery_address,
                     'payment_method': order.payment_method,
+                    'stock_booking_id': order.stock_booking_id,
+                    'shipping_id': order.logistics_tracking_id,  # ← SOLO ESTE
                     'items': []
                 }
                 
+                # Si tenemos datos del envío, agregar info extra
+                if datos_envio:
+                    order_data['tracking_number'] = datos_envio.get('tracking_number')
+                    order_data['estimated_delivery'] = datos_envio.get('estimated_delivery_at')
+                    order_data['shipping_cost'] = datos_envio.get('total_cost')
+                    order_data['shipping_currency'] = datos_envio.get('currency')
+                
+                # Procesar items
                 for item in order.items.all():
-                    print(f"   📋 Item: productId={item.productId}, quantity={item.quantity}, price={item.price}")
-                    
-                    # Intentar obtener nombre real del producto
                     producto_info = obtener_info_producto_para_orden(request, item.productId)
                     
-                    print(f"   🔍 producto_info obtenido: {producto_info}")
-                    
                     if not producto_info:
-                        # Si no se puede obtener, usar datos básicos
                         producto_info = {
                             'id': item.productId,
                             'name': f'Producto {item.productId}',
                             'price': float(item.price),
                             'description': ''
                         }
-                        print(f"   ⚠️ Usando datos básicos: {producto_info['name']}")
                     
                     subtotal = item.quantity * float(item.price)
                     
@@ -268,10 +288,9 @@ def orders_view(request):
                         'subtotal': subtotal,
                         'product': producto_info
                     })
-                    print(f"   ✅ Item agregado: {producto_info.get('name')}")
                 
                 orders_data.append(order_data)
-                print(f"✅ Orden #{order.id} procesada con {len(order_data['items'])} items")
+                print(f"✅ Orden #{order.id} procesada - Estado: {order.status}")
                 
         except Exception as e:
             print(f"❌ Error en orders_view: {e}")
@@ -880,7 +899,7 @@ def productos_stock(request):
 def producto_detalle(request, producto_id):
     """API protegida: Producto específico del Stock"""
     try:
-        response = requests.get(f"http://localhost:8081/v1/productos/{producto_id}", timeout=10)
+        response = requests.get(f"https://stock.mmalgor.com.ar/v1/productos/{producto_id}", timeout=10)
         
         if response.status_code == 200:
             return JsonResponse({
@@ -925,6 +944,72 @@ def test_keycloak(request):
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
     
+def obtener_display_estado(status):
+    """Convertir estado interno a texto amigable para mostrar"""
+    estados = {
+        'PENDING': 'Pendiente',
+        'PROCESSING': 'Procesando',
+        'IN_TRANSIT': 'En camino',
+        'DELIVERED': 'Entregado',
+        'CANCELLED': 'Cancelado'
+    }
+    return estados.get(status, status)
+
+def consultar_estado_envio_logistica(tracking_id):
+    """
+    Consultar el estado actual de un envío en la API de Logística
+    Versión simplificada con manejo de errores básico
+    """
+    try:
+        LOGI_API_URL = getattr(settings, 'LOGI_API_URL', 'https://apilogistica.mmalgor.com.ar/')
+        
+        # Obtener token
+        token = obtener_token_logistica_client_credentials()
+        if not token:
+            return None
+        
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/json'
+        }
+        
+        # Endpoint: /shipping/{id}
+        url = f"{LOGI_API_URL.rstrip('/')}/shipping/{tracking_id}"
+        
+        # Timeout corto para no bloquear la UI
+        response = requests.get(url, headers=headers, timeout=3)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            # Silenciar errores 404 (envío no encontrado) para no spamear logs
+            if response.status_code != 404:
+                print(f"⚠️ Error {response.status_code} consultando envío {tracking_id}")
+            return None
+            
+    except requests.exceptions.Timeout:
+        print(f"⏰ Timeout consultando envío {tracking_id}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"🔌 Error de conexión: {e}")
+        return None
+    except Exception as e:
+        print(f"💥 Error inesperado: {e}")
+        return None
+
+def mapear_estado_logistica(estado_logistica):
+    """
+    Mapear estados de Logística API a estados internos
+    """
+    mapeo = {
+        'CREATED': 'PROCESSING',
+        'IN_TRANSIT': 'IN_TRANSIT',
+        'DELIVERED': 'DELIVERED',
+        'CANCELLED': 'CANCELLED',
+        'FAILED': 'CANCELLED',
+        'RETURNED': 'CANCELLED'
+    }
+    return mapeo.get(estado_logistica)
 
 @keycloak_login_required
 def envios_logistica(request):
@@ -959,3 +1044,4 @@ def reservas_page(request):
     return render(request, 'portal_compras/reservas.html', {
         'user': request.user
     })
+

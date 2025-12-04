@@ -432,54 +432,98 @@ def checkout_api(request):
             )
         print(f"✅ Items de orden creados: {len(cart.items)}")
         
-        # 6. ✅ CREAR ENVÍO EN LOGÍSTICA
+        # 6. ✅ EXTRACCÍON DE PRODUCTOS DE LA RESERVA PARA LOGÍSTICA
+        print("📦 Extrayendo productos de la reserva para Logística...")
+        productos_envio = []
+
+        # Verificar que tenemos datos de la reserva
+        if reserva_resultado.get('success') and 'data' in reserva_resultado:
+            reserva_data = reserva_resultado['data']
+            
+            if 'items' in reserva_data and reserva_data['items']:
+                print(f"🔍 Encontrados {len(reserva_data['items'])} items en la reserva")
+                
+                for item in reserva_data['items']:
+                    print(f"📋 Procesando item: {item.get('nombre')}")
+                    
+                    # Extraer datos del producto
+                    producto_id = item.get('productoId')
+                    nombre = item.get('nombre', f'Producto {producto_id}')
+                    cantidad = item.get('cantidad', 1)
+                    
+                    # El peso está dentro de item['producto']
+                    producto_info = item.get('producto', {})
+                    peso_kg = producto_info.get('pesoKg', '0.5')
+                    
+                    # También podemos extraer dimensiones si las necesita Logística
+                    dimensiones = producto_info.get('dimensiones', {})
+                    
+                    productos_envio.append({
+                        'producto_id': producto_id,
+                        'nombre': nombre,
+                        'cantidad': cantidad,
+                        'precio_unitario': item.get('precioUnitario', '0'),
+                        'peso_kg': peso_kg,
+                        'dimensiones': dimensiones,
+                        'ubicacion': producto_info.get('ubicacion', {})
+                    })
+                    
+                    print(f"   ✅ Item extraído: {nombre}, cantidad: {cantidad}, peso: {peso_kg}kg")
+            else:
+                print("⚠️ No hay items en la reserva o estructura incorrecta")
+        else:
+            print("⚠️ No se pudo obtener datos de la reserva")
+
+        print(f"📦 Total productos extraídos: {len(productos_envio)}")
+        
+        # 7. ✅ CREAR ENVÍO EN LOGÍSTICA
         print("🚚 Creando envío en Logística...")
         
-        # Obtener datos de envío del request
-        ciudad = request.data.get('ciudad', '')
-        provincia = request.data.get('provincia', '')
-        codigo_postal = request.data.get('codigoPostal', '')
-
+        # Si no hay datos de ciudad/provincia, usar valores por defecto
         if not ciudad or not provincia:
             print("⚠️ Datos de ubicación incompletos, usando valores por defecto")
             ciudad = ciudad or "Ciudad"
             provincia = provincia or "Provincia"
 
-        # Preparar datos para Logística
+        # Preparar datos para Logística CON LOS PRODUCTOS EXTRÍDOS
         envio_data = {
-            'orden_id': order.id,
+            'orden_id': order.id,  # ← AHORA order SÍ está definido
             'direccion_entrega': delivery_address,
             'ciudad': ciudad,
             'provincia': provincia,
             'codigo_postal': codigo_postal,
             'telefono': request.data.get('telefono', ''),
             'instrucciones': request.data.get('instrucciones', ''),
-            'productos': []
+            'productos': productos_envio  # ← CON DATOS REALES
         }
+
+        print(f"📝 Envio_data preparado con {len(productos_envio)} productos para orden #{order.id}")
 
         # Llamar a la función interna para crear el envío
         envio_resultado = None
         try:
             envio_resultado = crear_envio_logistica_interno(request, envio_data)
             
-            if envio_resultado.get('success'):
-                order.logistics_tracking_id = envio_resultado.get('tracking_id')
+            if envio_resultado and envio_resultado.get('success'):
+                shipping_id = envio_resultado.get('shipping_id')
+                order.logistics_tracking_id = envio_resultado.get('shipping_id')
                 order.save()
                 print(f"✅ Envío creado en Logística: {order.logistics_tracking_id}")
             else:
-                print(f"⚠️ No se pudo crear envío en Logística: {envio_resultado.get('error')}")
+                error_msg = envio_resultado.get('error', 'Error desconocido') if envio_resultado else 'No se pudo crear envío'
+                print(f"⚠️ No se pudo crear envío en Logística: {error_msg}")
                 # Continuamos aunque falle el envío
         except Exception as e:
             print(f"⚠️ Error al crear envío: {e}")
             # No fallamos el checkout completo si falla Logística
         
-        # 7. Vaciar el carrito
+        # 8. Vaciar el carrito
         cart.items = []
         cart.total = 0
         cart.save()
         print("✅ Carrito vaciado")
         
-        # 8. Preparar respuesta
+        # 9. Preparar respuesta
         order_data = {
             'id': order.id,
             'date': order.date.isoformat(),
@@ -488,12 +532,19 @@ def checkout_api(request):
             'delivery_address': order.delivery_address,
             'payment_method': order.payment_method,
             'stock_booking_id': order.stock_booking_id,
-            'logistics_tracking_id': order.logistics_tracking_id,
             'compra_id': reserva_resultado.get('compra_id'),
             'reserva_estado': reserva_resultado.get('estado'),
-            'envio_creado': envio_resultado.get('success', False) if envio_resultado else False,
             'message': 'Orden creada exitosamente'
         }
+        
+        # Solo agregar datos de logística si se creó exitosamente
+        if envio_resultado and envio_resultado.get('success'):
+            order_data['logistics_tracking_id'] = envio_resultado.get('tracking_id')
+            order_data['envio_creado'] = True
+        else:
+            order_data['logistics_tracking_id'] = None
+            order_data['envio_creado'] = False
+            order_data['envio_error'] = envio_resultado.get('error', 'No se pudo crear envío') if envio_resultado else 'Error al crear envío'
         
         print(f"🎉 CHECKOUT COMPLETADO - Orden #{order.id}")
         
@@ -514,33 +565,16 @@ def crear_envio_logistica_interno(request, envio_data):
     print("="*60)
     print("🚚 DEBUG: Verificando settings...")
     
-    # NOMBRES CORRECTOS basados en tu settings.py
     LOGI_API_URL = getattr(settings, 'LOGI_API_URL', None)
     LOGI_API_CLIENT_ID = getattr(settings, 'LOGI_API_CLIENT_ID', None)
-    LOGI_API_CLIENT_SECRET = getattr(settings, 'LOGI_API_CLIENT_SECRET', None)
     
     print(f"🌐 LOGI_API_URL: {LOGI_API_URL}")
     print(f"🔑 LOGI_API_CLIENT_ID: {LOGI_API_CLIENT_ID}")
-    print(f"🔐 LOGI_API_CLIENT_SECRET: {'***' if LOGI_API_CLIENT_SECRET else 'NO CONFIGURADO'}")
+    
     try:
-        LOGISTICA_API_URL = getattr(settings, 'LOGI_API_URL', 'https://apilogistica.mmalgor.com.ar/v1')
-        LOGISTICA_CLIENT_ID = getattr(settings, 'LOGI_API_CLIENT_ID', 'grupo-12')
-        LOGISTICA_CLIENT_SECRET = getattr(settings, 'LOGI_API_CLIENT_SECRET', '')
-        
-        print(f"🌐 URL API Logística: {LOGISTICA_API_URL}")
-        print(f"🔑 Client ID: {LOGISTICA_CLIENT_ID}")
-        
         # Obtener token
-        try:
-            social_auth = request.user.social_auth.get(provider='keycloak')
-            access_token = social_auth.extra_data['access_token']
-            token = access_token
-            print(f"🔐 Token Keycloak obtenido: {token[:30]}...")
-        except Exception as e:
-            print(f"⚠️ No se pudo obtener token Keycloak: {e}")
-            token = obtener_token_logistica_client_credentials()
-            if token:
-                print(f"🔐 Token Client Credentials: {token[:30]}...")
+        print("🔐 Obteniendo token específico para Logística...")
+        token = obtener_token_logistica_client_credentials()
         
         if not token:
             print("❌ No se pudo obtener token para Logística")
@@ -549,42 +583,68 @@ def crear_envio_logistica_interno(request, envio_data):
                 'error': 'No se pudo autenticar con el servicio de logística'
             }
         
+        print(f"🔐 Token Client Credentials obtenido: {token[:30]}...")
+        
+        # Configurar headers
         headers = {
             'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         }
         
-        print(f"📋 Headers preparados (Authorization: Bearer ...)")
+        # ✅ PREPARAR DATOS SEGÚN DOCUMENTACIÓN
+        # 1. Products array (con "id", no "productId")
+        products = []
+        for producto in envio_data.get('productos', []):
+            products.append({
+                "id": int(producto.get('producto_id')),  # ← NÚMERO, se llama "id"
+                "quantity": int(producto.get('cantidad', 1))  # ← NÚMERO
+            })
         
-        # Completar datos
-        from datetime import datetime
-        envio_data['usuario_id'] = str(request.user.id)
-        envio_data['cliente_nombre'] = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-        envio_data['cliente_email'] = request.user.email
-        envio_data['estado'] = 'PENDIENTE'
-        envio_data['fecha_creacion'] = datetime.now().isoformat()
+        # Si no hay productos, usar datos por defecto
+        if not products:
+            products = [{
+                "id": 1,
+                "quantity": 1
+            }]
         
-        print(f"📝 Datos completos para enviar: {envio_data}")
+        # 2. Delivery address (objeto estructurado)
+        delivery_address = {
+            "street": envio_data.get('direccion_entrega', ''),
+            "city": envio_data.get('ciudad', 'Ciudad'),
+            "state": envio_data.get('provincia', 'Provincia'),
+            "postal_code": envio_data.get('codigo_postal', '') or "H3500ABC",
+            "country": "AR"  # Argentina por defecto
+        }
         
-        url = f"{LOGISTICA_API_URL.rstrip('/')}/tracking"
+        # 3. Datos principales según documentación
+        data_corregido = {
+            "order_id": int(envio_data.get('orden_id', 0)),  # ← NÚMERO
+            "user_id": int(request.user.id),  # ← NÚMERO
+            "delivery_address": delivery_address,
+            "transport_type": "road",  # ← REQUERIDO
+            "products": products
+        }
+        
+        print(f"📝 Datos CORREGIDOS según documentación: {data_corregido}")
+        
+        url = f"{LOGI_API_URL.rstrip('/')}/shipping"
         print(f"🔗 URL final: {url}")
         print(f"⏱️  Enviando POST a API de Logística...")
         
-        # IMPORTANTE: Agrega timeout bajo para pruebas
-        response = requests.post(url, json=envio_data, headers=headers, timeout=5)
+        response = requests.post(url, json=data_corregido, headers=headers, timeout=5)
         
         print(f"📡 RESPUESTA API LOGÍSTICA:")
         print(f"   Status Code: {response.status_code}")
-        print(f"   Headers: {dict(response.headers)}")
-        print(f"   Contenido: {response.text[:500]}...")  # Primeros 500 chars
+        print(f"   Contenido: {response.text[:500]}...")
         
         if response.status_code in [200, 201]:
             envio_response = response.json()
             print(f"✅ ÉXITO - Envío creado: {envio_response}")
+            shipping_id = envio_response.get('shipping_id')
             return {
                 'success': True,
-                'tracking_id': envio_response.get('id') or envio_response.get('tracking_id'),
+                'tracking_id': shipping_id,
                 'message': 'Envío creado exitosamente',
                 'data': envio_response
             }
@@ -597,24 +657,6 @@ def crear_envio_logistica_interno(request, envio_data):
                 'details': response.text
             }
             
-    except requests.exceptions.Timeout:
-        print(f"⏰ TIMEOUT - La API de Logística no respondió en 5 segundos")
-        return {
-            'success': False,
-            'error': 'Timeout: La API de Logística no respondió'
-        }
-    except requests.exceptions.ConnectionError:
-        print(f"🔌 CONNECTION ERROR - No se pudo conectar a {LOGISTICA_API_URL}")
-        return {
-            'success': False, 
-            'error': f'No se pudo conectar a {LOGISTICA_API_URL}'
-        }
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Error de conexión: {e}")
-        return {
-            'success': False,
-            'error': f'Error de conexión: {str(e)}'
-        }
     except Exception as e:
         print(f"💥 ERROR INESPERADO: {e}")
         import traceback
@@ -625,7 +667,6 @@ def crear_envio_logistica_interno(request, envio_data):
         }
     finally:
         print("=" * 60)
-    
 # ✅ FUNCIÓN PARA RESERVAR PRODUCTOS EN STOCK
 def reservar_productos_stock(request, items):
     """
@@ -1165,7 +1206,7 @@ def obtener_envios_logistica(request) -> Response:
     
     try:
         # Obtener configuración desde settings
-        LOGISTICA_API_URL = getattr(settings, "LOGI_API_URL", "https://apilogistica.mmalgor.com.ar/v1")
+        LOGISTICA_API_URL = getattr(settings, "LOGI_API_URL", "https://apilogistica.mmalgor.com.ar/")
         LOGISTICA_CLIENT_ID = getattr(settings, "LOGI_API_CLIENT_ID", "grupo-12")
         LOGISTICA_CLIENT_SECRET = getattr(settings, "LOGI_API_CLIENT_SECRET", "")
         
@@ -1213,7 +1254,7 @@ def obtener_envios_logistica(request) -> Response:
             except Exception:
                 pass
         
-        url = f"{LOGISTICA_API_URL.rstrip('/')}/tracking"
+        url = f"{LOGISTICA_API_URL.rstrip('/')}/shipping"
         print(f"🔍 Llamando a API Logística: {url}")
         print(f"🔍 Params: {params}")
         print(f"🔍 Headers: {{'Authorization': 'Bearer ...'}}")
@@ -1267,13 +1308,14 @@ def obtener_token_logistica_client_credentials():
     Obtener token de acceso para la API de Logística usando client credentials
     """
     try:
-        LOGISTICA_API_URL = getattr(settings, "LOGI_API_URL", "https://apilogistica.mmalgor.com.ar/v1")
+        LOGI_API_URL = getattr(settings, "LOGI_API_URL", "https://apilogistica.mmalgor.com.ar/")
         CLIENT_ID = getattr(settings, "LOGI_API_CLIENT_ID", "grupo-12")
         CLIENT_SECRET = getattr(settings, "LOGI_API_CLIENT_SECRET", "")
         
-        # El endpoint de token podría estar en la misma base URL o en Keycloak
-        # Depende de cómo esté configurada la API de Logística
-        token_url = f"{LOGISTICA_API_URL.rstrip('/')}/oauth/token"
+        print(f"🔐 Intentando obtener token para {CLIENT_ID} en {LOGI_API_URL}")
+        
+        # URL de Keycloak para obtener token
+        token_url = "https://keycloak.mmalgor.com.ar/realms/ds-2025-realm/protocol/openid-connect/token"
         
         data = {
             'grant_type': 'client_credentials',
@@ -1281,19 +1323,30 @@ def obtener_token_logistica_client_credentials():
             'client_secret': CLIENT_SECRET
         }
         
-        response = requests.post(token_url, data=data, timeout=10)
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        print(f"🔐 Enviando solicitud a Keycloak...")
+        response = requests.post(token_url, data=data, headers=headers, timeout=10)
+        
+        print(f"🔐 Respuesta Keycloak: {response.status_code}")
         
         if response.status_code == 200:
             token_data = response.json()
-            return token_data.get('access_token')
+            access_token = token_data.get('access_token')
+            print(f"✅ Token obtenido exitosamente")
+            return access_token
         else:
-            print(f"❌ Error obteniendo token client_credentials: {response.status_code}")
+            print(f"❌ Error obteniendo token client_credentials: {response.status_code} - {response.text}")
             return None
             
     except Exception as e:
         print(f"❌ Error en obtener_token_logistica_client_credentials: {e}")
+        import traceback
+        traceback.print_exc()
         return None
-        
+           
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def obtener_envios_usuario(request):
@@ -1302,7 +1355,7 @@ def obtener_envios_usuario(request):
     """
     try:
         # Configuración
-        LOGISTICA_API_URL = getattr(settings, 'LOGISTICA_API_URL', 'https://apilogistica.mmalgor.com.ar')
+        LOGISTICA_API_URL = getattr(settings, 'LOGI_API_URL', 'https://apilogistica.mmalgor.com.ar')
         
         # Obtener token del usuario
         social_auth = request.user.social_auth.get(provider='keycloak')
@@ -1322,7 +1375,7 @@ def obtener_envios_usuario(request):
         # Consultamos cuál es el formato correcto
         
         # Primero intentamos obtener todos los envíos
-        url = f"{LOGISTICA_API_URL}/tracking"
+        url = f"{LOGISTICA_API_URL}/shipping"
         print(f"🔍 Consultando API Logística: {url}")
         
         response = requests.get(url, headers=headers, timeout=10)
@@ -1389,7 +1442,7 @@ def crear_envio_logistica(request):
                 }, status=status.HTTP_400_BAD_REQUEST)
         
         # Obtener configuración
-        LOGISTICA_API_URL = getattr(settings, "LOGI_API_URL", "https://apilogistica.mmalgor.com.ar/v1")
+        LOGISTICA_API_URL = getattr(settings, "LOGI_API_URL", "https://apilogistica.mmalgor.com.ar/")
         LOGISTICA_CLIENT_ID = getattr(settings, "LOGI_API_CLIENT_ID", "grupo-12")
         LOGISTICA_CLIENT_SECRET = getattr(settings, "LOGI_API_CLIENT_SECRET", "")
         
@@ -1500,3 +1553,34 @@ def crear_envio_logistica(request):
             'code': 'INTERNAL_ERROR'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+def consultar_estado_envio_logistica(shipping_id):
+    """
+    Consultar el estado actual de un envío usando shipping_id
+    """
+    try:
+        LOGI_API_URL = getattr(settings, 'LOGI_API_URL', 'https://apilogistica.mmalgor.com.ar/')
+        
+        # Obtener token
+        token = obtener_token_logistica_client_credentials()
+        if not token:
+            return None
+        
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/json'
+        }
+        
+        # ✅ USAR SHIPPING_ID DIRECTAMENTE
+        url = f"{LOGI_API_URL.rstrip('/')}/shipping/{shipping_id}"
+        print(f"🔍 Consultando estado de envío: {url}")
+        
+        response = requests.get(url, headers=headers, timeout=3)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error consultando envío {shipping_id}: {e}")
+        return None
