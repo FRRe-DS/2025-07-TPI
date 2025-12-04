@@ -3,7 +3,6 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
-![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 ![Estado](https://img.shields.io/badge/Estado-Tercera%20Entrega-success?style=for-the-badge)
 ![UTN](https://img.shields.io/badge/UTN-FRRe-blue?style=for-the-badge)
@@ -129,7 +128,8 @@ El sistema utiliza FastAPI para exponer una API RESTful que permite la interacci
 1. Ejecución con Docker Compose (Local)
 
   
-  ```bash git clone https://github.com/FRRe-DS/2025-07-TPI.git```
+  ```bash 
+  git clone https://github.com/FRRe-DS/2025-07-TPI.git```
 
 2. Navega al directorio del proyecto:
    ```bash
