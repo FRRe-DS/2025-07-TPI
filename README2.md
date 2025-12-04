@@ -19,7 +19,7 @@ Desarrollo de Software 2025 - Tercera Entrega
 
 ---
 
-## ?? Tabla de Contenidos
+## 📋 Tabla de Contenidos
 
 1. [Descripción del Proyecto](#descripcion)
 2. [Arquitectura del Sistema](#arquitectura)
@@ -37,7 +37,7 @@ Desarrollo de Software 2025 - Tercera Entrega
 ---
 
 <a name="descripcion"></a>
-## ?? Descripción del Proyecto
+## 📝 Descripción del Proyecto
 
 Este proyecto implementa un sistema integral para la administración de inventarios y la gestión de pedidos de clientes en un entorno de e-commerce. Diseñado bajo un enfoque modular, el sistema permite desacoplar la lógica de negocio de la interfaz de usuario y la persistencia de datos.
 
@@ -46,7 +46,7 @@ El objetivo principal es simular un entorno real de e-commerce donde interactúa
 ---
 
 <a name="arquitectura"></a>
-## ?? Arquitectura del Sistema
+## Arquitectura del Sistema
 
 El diseño sigue una arquitectura en capas para asegurar la escalabilidad y mantenibilidad del código:
 
@@ -59,75 +59,68 @@ El sistema utiliza FastAPI para exponer una API RESTful que permite la interacci
 ---
 
 <a name="estructura"></a>
-## ?? Estructura del Repositorio
+## Estructura del Repositorio
 
 ```
 2025-07-TPI-feature-tercera-entrega/
-??? LICENSE
-??? logica.py               # Núcleo del sistema de validación
-??? logicamain.py           # Script para pruebas de la lógica de negocio
-??? main.py                 # API FastAPI para gestión de stock
-??? portal.py               # Interfaz de usuario para simulación de compras
-??? portalmain.py           # Script para pruebas del módulo de ventas
-??? README.md               # Este archivo
-??? Stock.py                # Definición de modelos para stock
-??? TrabajoTP/
-    ??? .gitignore
-    ??? check_orders.py
-    ??? check_tables.py
-    ??? DATABASE_SETUP.md
-    ??? debug_db.py
-    ??? docker-compose.yml
-    ??? dockerfile
-    ??? env.ejemplo
-    ??? manage.py
-    ??? requirements.txt
-    ??? 2025-07-TPI/
-    ?   ??? env
-    ??? portal_compras/
-    ?   ??? admin.py
-    ?   ??? api_views.py
-    ?   ??? apps.py
-    ?   ??? backends.py
-    ?   ??? keycloak_auth.py
-    ?   ??? models.py
-    ?   ??? pipeline.py
-    ?   ??? services.py
-    ?   ??? tests.py
-    ?   ??? urls.py
-    ?   ??? views.py
-    ?   ??? __init__.py
-    ?   ??? migrations/
-    ?       ??? 0001_initial.py
-    ?       ??? 0002_initial.py
-    ?       ??? __init__.py
-    ??? realm-config/
-    ?   ??? realm.json
-    ??? static/
-    ?   ??? portal_compras/
-    ?       ??? css/
-    ?           ??? css.css
-    ?           ??? producto.css
-    ??? staticfiles/
-    ????templates/
-    ?   ?   ????portal_compras/
-    ?   ?           carrito.html
-    ?   ?           index.html
-    ?   ?           login.html
-    ?   ?           ordenes.html
-    ?   ?           productos.html
-    ?   ?           registro.html
-    ?   ?           reservas.html
-    ?   ?
-    ?   ????TrabajoTP/
-    ?           asgi.py
-    ?           forms.py
-    ?           models.py
-    ?           settings.py
-    ?           urls.py
-    ?           views.py
-    ?           wsgi.py
-    ?           __init__.py
+├── LICENSE
+└── TrabajoTP/
+    ├──  .gitignore
+    ├──  check_orders.py
+    ├──  check_tables.py
+    ├──  DATABASE_SETUP.md
+    ├──  debug_db.py
+    ├──  docker-compose.yml
+    ├──  dockerfile
+    ├──  env.ejemplo
+    ├──  manage.py
+    ├──  requirements.txt
+    ├──  2025-07-TPI/
+    │    ├── env
+    ├──  portal_compras/
+    │   ├── admin.py
+    │   ├── api_views.py
+    │   ├── apps.py
+    │   ├── backends.py
+    │   ├── keycloak_auth.py
+    │   ├── models.py
+    │   ├── pipeline.py
+    │   ├── services.py
+    │   ├── tests.py
+    │   ├── urls.py
+    │   ├── views.py
+    │   ├── __init__.py
+    │   ├── migrations/
+    │       ??? 0001_initial.py
+    │       ??? 0002_initial.py
+    │       ??? __init__.py
+    ├── realm-config/
+    │    ├── realm.json
+    ├── static/
+    │    ├── portal_compras/
+    │        ├── css/
+    │            ├── css.css
+    │            ├── producto.css
+    ├── staticfiles/
+    ├── templates/
+    │   │   ????portal_compras/
+    │   │           carrito.html
+    │   │           index.html
+    │   │           login.html
+    │   │           ordenes.html
+    │   │           productos.html
+    │   │           registro.html
+    │   │           reservas.html
+    │   │
+    │   ├── TrabajoTP/
+    │           asgi.py
+    │           forms.py
+    │           models.py
+    │           settings.py
+    │           urls.py
+    │           views.py
+    │           wsgi.py
+    │           __init__.py
 
 
 <a name="instalacion"></a>
@@ -154,7 +147,7 @@ El sistema utiliza FastAPI para exponer una API RESTful que permite la interacci
    - Admin Django: http://localhost:8000/admin
 
 <a name="dependencias"></a>
-## ?? Dependencias
+## Dependencias
 
 Las dependencias principales del proyecto se encuentran en `TrabajoTP/requirements.txt`:
 
@@ -178,34 +171,34 @@ Una vez instalado, puedes ejecutar la aplicación con:
 Para desarrollo, el flag `--reload` permite recarga automática al cambiar el código.
 
 <a name="modulos"></a>
-## ?? Módulos y Funcionalidades
+## Módulos y Funcionalidades
 
-### ?? Portal de Ventas
+### Portal de Ventas
 Interfaz web desarrollada con Django que permite a los usuarios navegar el catálogo de productos, agregar items al carrito y realizar pedidos. Incluye páginas para productos, carrito, órdenes, login y registro.
 
-### ?? Gestión de Stock
+### Gestión de Stock
 API REST desarrollada con FastAPI para la administración del inventario. Gestiona productos, stock, precios y reservas. Endpoints para listar productos, obtener detalles y manejar bookings.
 
-### ?? Gestión de Usuarios y Autenticación
+### Gestión de Usuarios y Autenticación
 Sistema de autenticación integrado con Keycloak para login seguro y registro de usuarios. Perfiles de usuario con información adicional como teléfono, DNI y fecha de nacimiento.
 
-### ?? Gestión de Carritos de Compras
+### Gestión de Carritos de Compras
 Funcionalidad para que los usuarios agreguen productos al carrito, calculen totales automáticamente y gestionen items antes de confirmar la compra. Persistencia en base de datos con JSONField.
 
-### ?? Gestión de Órdenes
+### Gestión de Órdenes
 Módulo completo para el manejo de órdenes de compra: creación desde el carrito, actualización de estados (pendiente, procesando, enviado, entregado, cancelado), integración con APIs de stock y logística, y tracking de envíos.
 
-### ?? Lógica de Negocio
+### Lógica de Negocio
 Capa intermedia que valida reglas de negocio: verificación de stock disponible, precios correctos, registro de transacciones y gestión de bookings para evitar overbooking.
 
-### ?? Gestión de Bookings
+### Gestión de Bookings
 Sistema de reservas de stock para pedidos pendientes. Permite crear reservas, vincular a órdenes, liberar stock si falla el proceso y mantener integridad del inventario.
 
-### ?? Integración con APIs Externas
+### Integración con APIs Externas
 Comunicación con servicios externos: API de Stock para reservas, API de Logística para tracking de envíos y Keycloak para autenticación.
 
 <a name="api"></a>
-## ?? API Documentation
+## API Documentation
 
 La API está documentada automáticamente con Swagger UI. Al ejecutar la aplicación, visita `http://localhost:8000/docs` para interactuar con los endpoints.
 
@@ -222,7 +215,7 @@ La API está documentada automáticamente con Swagger UI. Al ejecutar la aplicac
 - `POST /api/booking/{id}/release`: Libera una reserva y devuelve stock.
 
 <a name="modelos"></a>
-## ?? Modelos de Datos
+## Modelos de Datos
 
 ### Producto
 ```python
@@ -299,7 +292,7 @@ La API está documentada automáticamente con Swagger UI. Al ejecutar la aplicac
 ```
 
 <a name="tecnologias"></a>
-## ?? Tecnologías
+## Tecnologías
 
 | Categoría          | Tecnología          | Uso                                      |
 |--------------------|---------------------|------------------------------------------|
@@ -312,7 +305,7 @@ La API está documentada automáticamente con Swagger UI. Al ejecutar la aplicac
 
 
 
-## ?? URLs de Acceso
+## URLs de Acceso
 
 ### Producción
 
@@ -331,7 +324,7 @@ La API está documentada automáticamente con Swagger UI. Al ejecutar la aplicac
   - Documentación FastAPI: http://localhost:8000/docs
 
 <a name="contribucion"></a>
-## ?? Contribución
+## Contribución
 
 Para contribuir al proyecto:
 
@@ -342,7 +335,7 @@ Para contribuir al proyecto:
 5. Abre un Pull Request.
 
 <a name="licencia"></a>
-## ?? Licencia
+## Licencia
 
 Este proyecto es parte del Trabajo Práctico Integrador de la Universidad Tecnológica Nacional - Facultad Regional Resistencia. Todos los derechos reservados.
 
