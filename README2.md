@@ -122,9 +122,9 @@ El sistema utiliza FastAPI para exponer una API RESTful que permite la interacci
     │           wsgi.py
     │           __init__.py
 
-
+```
 <a name="instalacion"></a>
-## ?? Instalación y Despliegue
+##  Instalación y Despliegue
 
 1. Ejecución con Docker Compose (Local)
 
@@ -156,7 +156,7 @@ Las dependencias principales del proyecto se encuentran en `TrabajoTP/requiremen
 - **Pydantic**: Validación de datos y serialización.
 
 <a name="ejecucion"></a>
-## ?? Ejecución
+##  Ejecución
 
 Una vez instalado, puedes ejecutar la aplicación con:
 
