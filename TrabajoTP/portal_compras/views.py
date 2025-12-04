@@ -1044,4 +1044,41 @@ def reservas_page(request):
     return render(request, 'portal_compras/reservas.html', {
         'user': request.user
     })
-
+def obtener_token_logistica_client_credentials():
+    """
+    Obtener token de acceso para la API de Logística usando client credentials
+    """
+    try:
+        LOGI_API_URL = getattr(settings, "LOGI_API_URL", "https://apilogistica.mmalgor.com.ar/")
+        CLIENT_ID = getattr(settings, "LOGI_API_CLIENT_ID", "grupo-12")
+        CLIENT_SECRET = getattr(settings, "LOGI_API_CLIENT_SECRET", "")
+        
+        print(f"🔐 Intentando obtener token para {CLIENT_ID} en {LOGI_API_URL}")
+        
+        # URL de Keycloak para obtener token
+        token_url = "https://keycloak.mmalgor.com.ar/realms/ds-2025-realm/protocol/openid-connect/token"
+        
+        data = {
+            'grant_type': 'client_credentials',
+            'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET
+        }
+        
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        response = requests.post(token_url, data=data, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            token_data = response.json()
+            access_token = token_data.get('access_token')
+            print(f"✅ Token obtenido exitosamente")
+            return access_token
+        else:
+            print(f"❌ Error obteniendo token client_credentials: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error en obtener_token_logistica_client_credentials: {e}")
+        return None
