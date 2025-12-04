@@ -44,15 +44,32 @@ El objetivo principal es simular un entorno real de e-commerce donde interactúa
 El diseño sigue una arquitectura en capas para asegurar la escalabilidad y mantenibilidad del código.
 <a name="estructura"></a>
 ## 📂 Estructura del Repositorio
-Archivo,Descripción
-main.py,Punto de entrada principal. Inicializa el sistema completo.
-portal.py,Interfaz de usuario para simulación de compras.
-logica.py,Núcleo del sistema. Contiene las clases y funciones de validación.
-Stock.py,Módulo de administración de base de datos de productos.
-portalmain.py,Script para pruebas aisladas del módulo de ventas.
-logicamain.py,Script para pruebas unitarias de la lógica de negocio.
-Trabajo TP/,Carpeta con archivos de configuración Docker y documentación.
+```mermaid
+graph TD
+    User((Usuario))
+    
+    subgraph "Contenedor / Entorno"
+        direction TB
+        subgraph "Presentación"
+            Main[main.py]
+            Portal[portal.py]
+        end
+        
+        subgraph "Negocio"
+            Logica[logica.py]
+        end
+        
+        subgraph "Datos"
+            Stock[Stock.py]
+        end
+    end
 
+    User --> Main
+    User --> Portal
+    Main --> Logica
+    Portal --> Logica
+    Logica --> Stock
+```
 <a name="instalacion"></a>
 
 ## 🚀 Instalación y Despliegue
