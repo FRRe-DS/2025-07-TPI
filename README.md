@@ -44,13 +44,14 @@ El proyecto se basa en una Arquitectura Distribuida (o orientada a microservicio
 
 Modelo: Cliente-Servidor.
 Patrón de Comunicación: APIs RESTful sobre HTTP.
-Componentes:
-    -Portal de Compras (Nuestro Subsistema): Interfaz para el usuario y orquestador de pedidos.
+Componentes
+    -Portal de Compras: Interfaz para el usuario.
     -Stock: Gestión de inventario.
     -Logística: Gestión de envíos.
     
 ## 📂 Estructura del Repositorio
-```mermaid
+
+
 graph TD
     Client((Cliente Web))
     
@@ -71,7 +72,7 @@ graph TD
     Models -- SQL --> DB
     Views -- Render --> Templates
     Templates -- HTML Response --> Client
-```
+
 <a name="instalacion"></a>
 
 ## 🚀 Instalación y Despliegue
