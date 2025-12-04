@@ -23,8 +23,9 @@ Desarrollo de Software 2025
 2. [Arquitectura del Sistema](#arquitectura)
 3. [Estructura del Repositorio](#estructura)
 4. [Instalación y Despliegue](#instalacion)
-5. [Módulos y Funcionalidades](#modulos)
-6. [Tecnologías](#tecnologias)
+5. [Configuración de Base de Datos](#bd)
+6. [Módulos y Funcionalidades](#modulos)
+7. [Tecnologías](#tecnologias)
 
 ---
 
@@ -78,7 +79,19 @@ source venv/bin/activate  # Linux/Mac
 3. Ejecutar:
 python main.py
 <a name="modulos"></a>
+---
 
+<a name="bd"></a>
+## ⚙️ Configuración y Base de Datos
+
+El sistema requiere una configuración inicial de la base de datos para funcionar correctamente.
+
+> 📘 **Guía de Setup:**
+> Para ver las instrucciones detalladas de tablas, usuarios y scripts de inicialización, consulta el archivo oficial:
+> 👉 **[Guía de Configuración de Base de Datos](./TrabajoTP/DATABASE_SETUP.md)**
+
+### Variables de Entorno
+Asegúrate de tener un archivo `.env` en la raíz (o configurar las variables en Docker) con los parámetros definidos en la guía anterior.
 ## 🧩 Módulos y Funcionalidades
 🛒 Portal de Ventas
 
