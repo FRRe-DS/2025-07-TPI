@@ -46,29 +46,25 @@ El diseño sigue una arquitectura en capas para asegurar la escalabilidad y mant
 ## 📂 Estructura del Repositorio
 ```mermaid
 graph TD
-    User((Usuario))
+    Client((Cliente Web))
     
-    subgraph "Contenedor / Entorno"
-        direction TB
-        subgraph "Presentación"
-            Main[main.py]
-            Portal[portal.py]
-        end
-        
-        subgraph "Negocio"
-            Logica[logica.py]
-        end
-        
-        subgraph "Datos"
-            Stock[Stock.py]
-        end
+    subgraph "Servidor de Aplicación (Django)"
+        Router[https://www.indeed.com/q-dispatcher-l-indiana-jobs.html](https://www.indeed.com/q-dispatcher-l-indiana-jobs.html)
+        Views[Vistas / Lógica]
+        Models[Modelos / ORM]
+        Templates[Templates HTML]
+    end
+    
+    subgraph "Persistencia"
+        DB[(Base de Datos)]
     end
 
-    User --> Main
-    User --> Portal
-    Main --> Logica
-    Portal --> Logica
-    Logica --> Stock
+    Client -- HTTP Request --> Router
+    Router --> Views
+    Views -- Consulta --> Models
+    Models -- SQL --> DB
+    Views -- Render --> Templates
+    Templates -- HTML Response --> Client
 ```
 <a name="instalacion"></a>
 
