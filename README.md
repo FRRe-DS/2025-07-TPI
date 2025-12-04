@@ -65,7 +65,9 @@ cd "Trabajo TP"
 docker build -t grupo07-tpi .
 2. Correr el contenedor
 docker run -it --rm grupo07-tpi
+
 Opción B: Ejecución Local (Python)
+
 1. Clonar el repositorio:
 git clone [https://github.com/FRRe-DS/2025-07-TPI.git](https://github.com/FRRe-DS/2025-07-TPI.git)
 cd 2025-07-TPI
@@ -79,9 +81,11 @@ python main.py
 
 ## 🧩 Módulos y Funcionalidades
 🛒 Portal de Ventas
+
 Permite a los usuarios visualizar el catálogo de productos disponibles y realizar pedidos. Se comunica exclusivamente con la capa lógica para confirmar transacciones.
 
 📦 Gestión de Stock
+
 Módulo encargado de mantener la integridad del inventario. Sus funciones incluyen:
 
 Control de stock mínimo.
