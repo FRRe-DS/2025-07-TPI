@@ -39,15 +39,17 @@ El objetivo principal es simular un entorno real de e-commerce donde interactúa
 ---
 
 
-## 🏗 Arquitectura del Sistema
-El proyecto se basa en una Arquitectura Distribuida (o orientada a microservicios), donde el sistema global se divide en módulos independientes que se comunican vía red.
+## 1. Arquitectura del Sistema
+El proyecto se basa en una **Arquitectura Distribuida** (orientada a microservicios), donde el sistema global se divide en módulos independientes.
 
-Modelo: Cliente-Servidor.
-Patrón de Comunicación: APIs RESTful sobre HTTP.
-Componentes
-    1.Portal de Compras: Interfaz para el usuario.
-    2.Stock: Gestión de inventario.
-    2.Logística: Gestión de envíos.
+* **Modelo:**
+  * Cliente-Servidor.
+* **Patrón de Comunicación:**
+  * APIs RESTful sobre HTTP.
+* **Componentes:**
+  * **Portal de Compras:** Nuestro subsistema (Interfaz de usuario y orquestador).
+  * **Stock:** Gestión de inventario.
+  * **Logística:** Gestión de envíos.
     
 ## 📂 Estructura del Repositorio
 
