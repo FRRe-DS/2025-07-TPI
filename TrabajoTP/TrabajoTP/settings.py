@@ -119,7 +119,7 @@ STOCK_API_URL = 'https://stock.mmalgor.com.ar/v1'
 # Configuración para Stock API (grupo-05)
 LOGI_API_CLIENT_ID = 'grupo-12'
 LOGI_API_CLIENT_SECRET = '9e676dd4-2790-4191-9f1f-06c6c6fd71e5'
-LOGI_API_URL = 'https:/apilogistica.mmalgor.com.ar/v1'
+LOGI_API_URL = 'https://apilogistica.mmalgor.com.ar/v1'
 
 # =============================================================================
 # CONFIGURACIÓN SOCIAL AUTH - CORREGIDA

@@ -1,0 +1,293 @@
+<!-- templates/portal_compras/reservas.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Envíos/Reservas - Portal de Compras</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'portal_compras/css/css.css' %}">
+    <style>
+        .envio-item {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .envio-item.pendiente { border-left-color: #FF9800; }
+        .envio-item.en-camino { border-left-color: #2196F3; }
+        .envio-item.entregado { border-left-color: #4CAF50; }
+        .envio-item.cancelado { border-left-color: #F44336; }
+        
+        .estado-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        
+        .estado-pendiente { background: #FFF3CD; color: #856404; }
+        .estado-en-camino { background: #D1ECF1; color: #0C5460; }
+        .estado-entregado { background: #D4EDDA; color: #155724; }
+        .estado-cancelado { background: #F8D7DA; color: #721C24; }
+        
+        .producto-reserva {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .producto-reserva:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header__logo-container">
+            <img class="header__logo" src="https://imgs.search.brave.com/xXu0HqkEYT9th61dMNlPQQL0e4y15tfFDRslLHKcvJY/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pLnJl/ZGQuaXQvY2Z3eXNz/OTA1bWtjMS5wbmc" alt="Logo">
+        </div>
+        
+        <nav class="navbar">
+            <ul class="list">
+                <li class="header__nav-item"><a class="btn" href="{% url 'index' %}">Home</a></li>
+                <li class="header__nav-item"><a class="btn" href="{% url 'productos' %}">Productos</a></li>
+                <li class="header__nav-item"><a class="btn" href="{% url 'shopcart' %}">Carrito</a></li>
+                <li class="header__nav-item"><a class="btn" href="{% url 'ordenes' %}">Mis Pedidos</a></li>
+                <li class="header__nav-item"><a class="btn active" href="{% url 'reservas_page' %}">Mis Envíos</a></li>
+            </ul>
+            <div class="header__buttons-container">
+                {% if user.is_authenticated %}
+                    <span style="color: white; margin-right: 1rem;">
+                        Hola, {% if user.first_name %}{{ user.first_name }}{% endif %}!
+                    </span>
+                    <a href="{% url 'logout' %}" class="btn btn--login">Cerrar Sesión</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn--login">Log In</a>
+                    <a href="{% url 'registro' %}" class="btn btn--Sign_Up">Sign Up</a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="orden-container">
+            <h2>🚚 Mis Envíos y Reservas</h2>
+            
+            <div style="margin-bottom: 2rem;">
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <button class="btn btn--login" onclick="cargarReservas()">
+                        🔄 Actualizar
+                    </button>
+                    <select id="filtroEstado" onchange="cargarReservas()" style="padding: 0.5rem; border-radius: 4px;">
+                        <option value="">Todos los estados</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="EN_CAMINO">En camino</option>
+                        <option value="ENTREGADO">Entregado</option>
+                        <option value="CANCELADO">Cancelado</option>
+                    </select>
+                </div>
+                
+                <div id="loading" style="display: none; text-align: center; padding: 2rem;">
+                    <p>Cargando envíos...</p>
+                </div>
+                
+                <div id="envios-container">
+                    <!-- Los envíos se cargarán aquí con JavaScript -->
+                </div>
+                
+                <div id="sin-envios" style="display: none; text-align: center; padding: 3rem;">
+                    <h3>📭 No tienes envíos registrados</h3>
+                    <p>Realiza una compra para ver tus envíos aquí.</p>
+                    <a href="{% url 'index' %}" class="btn btn--login">🛒 Comenzar a Comprar</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarReservas();
+        });
+        
+        function getAuthToken() {
+            return localStorage.getItem('authToken') || '';
+        }
+        
+        function formatearFecha(fechaString) {
+            if (!fechaString) return 'Fecha no disponible';
+            try {
+                const fecha = new Date(fechaString);
+                return fecha.toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return fechaString;
+            }
+        }
+        
+        function obtenerClaseEstado(estado) {
+            const estados = {
+                'PENDIENTE': 'estado-pendiente',
+                'EN_CAMINO': 'estado-en-camino',
+                'ENTREGADO': 'estado-entregado',
+                'CANCELADO': 'estado-cancelado',
+                'PROCESANDO': 'estado-en-camino',
+                'ENVIADO': 'estado-en-camino'
+            };
+            return estados[estado] || 'estado-pendiente';
+        }
+        
+        async function cargarReservas() {
+            const token = getAuthToken();
+            if (!token) {
+                document.getElementById('envios-container').innerHTML = `
+                    <div class="envio-item">
+                        <p>⚠️ Debes iniciar sesión para ver tus envíos</p>
+                        <a href="{% url 'login' %}" class="btn btn--login">Iniciar Sesión</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('envios-container').innerHTML = '';
+            
+            try {
+                const filtroEstado = document.getElementById('filtroEstado').value;
+                let url = '/api/envios';
+                if (filtroEstado) {
+                    url += `?estado=${filtroEstado}`;
+                }
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.envios && data.envios.length > 0) {
+                        let html = '';
+                        
+                        data.envios.forEach(envio => {
+                            html += `
+                                <div class="envio-item ${envio.estado.toLowerCase().replace('_', '-')}">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                                        <div>
+                                            <h3>Envío #${envio.id || envio.tracking_id || 'N/A'}</h3>
+                                            <p><strong>Fecha creación:</strong> ${formatearFecha(envio.fecha_creacion)}</p>
+                                            ${envio.fecha_entrega_estimada ? 
+                                                `<p><strong>Entrega estimada:</strong> ${formatearFecha(envio.fecha_entrega_estimada)}</p>` : ''}
+                                            <p><strong>Dirección:</strong> ${envio.direccion_entrega || 'No especificada'}</p>
+                                            ${envio.ciudad ? `<p><strong>Ciudad:</strong> ${envio.ciudad}, ${envio.provincia}</p>` : ''}
+                                        </div>
+                                        <div>
+                                            <span class="estado-badge ${obtenerClaseEstado(envio.estado)}">
+                                                ${envio.estado}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    ${envio.productos ? `
+                                        <div>
+                                            <h4>📦 Productos incluidos:</h4>
+                                            ${envio.productos.map(producto => `
+                                                <div class="producto-reserva">
+                                                    <div>
+                                                        <strong>${producto.nombre || `Producto ${producto.id}`}</strong>
+                                                        <br>
+                                                        <small>Cantidad: ${producto.cantidad || 1}</small>
+                                                    </div>
+                                                    <div style="text-align: right;">
+                                                        <small>${producto.precio_unitario ? `$${parseFloat(producto.precio_unitario).toFixed(2)} c/u` : ''}</small>
+                                                    </div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${envio.notas ? `
+                                        <div style="margin-top: 1rem; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                                            <strong>📝 Notas:</strong> ${envio.notas}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${envio.tracking_number ? `
+                                        <div style="margin-top: 1rem;">
+                                            <strong>📦 Número de seguimiento:</strong> 
+                                            <code>${envio.tracking_number}</code>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        });
+                        
+                        document.getElementById('envios-container').innerHTML = html;
+                        document.getElementById('sin-envios').style.display = 'none';
+                    } else {
+                        document.getElementById('sin-envios').style.display = 'block';
+                    }
+                } else {
+                    document.getElementById('envios-container').innerHTML = `
+                        <div class="envio-item">
+                            <p>❌ Error al cargar los envíos</p>
+                            <p>Intenta nuevamente más tarde</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('envios-container').innerHTML = `
+                    <div class="envio-item">
+                        <p>❌ Error de conexión</p>
+                        <p>Verifica tu conexión a internet</p>
+                    </div>
+                `;
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        // Para actualizar el contador del carrito (si tienes uno)
+        async function actualizarContadorCarrito() {
+            const token = getAuthToken();
+            if (!token) return;
+            
+            try {
+                const response = await fetch('/api/shopcart/', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const carrito = await response.json();
+                    const totalItems = carrito.items.reduce((total, item) => total + (item.quantity || item.cantidad || 0), 0);
+                    
+                    const badge = document.getElementById('carrito-badge');
+                    if (badge) {
+                        badge.textContent = totalItems;
+                        badge.style.display = totalItems > 0 ? 'inline' : 'none';
+                    }
+                }
+            } catch (error) {
+                console.log('Error cargando carrito');
+            }
+        }
+        
+        // Inicializar contador de carrito si existe
+        if (document.getElementById('carrito-badge')) {
+            actualizarContadorCarrito();
+        }
+    </script>
+</body>
+</html>

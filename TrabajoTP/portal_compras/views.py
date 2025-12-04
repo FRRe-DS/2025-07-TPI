@@ -924,3 +924,38 @@ def test_keycloak(request):
         })
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
+    
+
+@keycloak_login_required
+def envios_logistica(request):
+    """API protegida: Proxy para productos del equipo Stock"""
+    try:
+        response = requests.get("https://apilogistica.mmalgor.com.ar", timeout=10)
+        
+        if response.status_code == 200:
+            return JsonResponse({
+                "status": "success",
+                "source": "logistica-api",
+                "client": KEYCLOAK_CLIENT_ID,
+                "data": response.json()
+            })
+        else:
+            return JsonResponse({
+                "status": "error", 
+                "message": f"Stock API responded with status {response.status_code}"
+            }, status=response.status_code)
+            
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error connecting to Stock API: {str(e)}"
+        }, status=500)
+
+def reservas_page(request):
+    """Vista para mostrar las reservas/enviós del usuario"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    return render(request, 'portal_compras/reservas.html', {
+        'user': request.user
+    })

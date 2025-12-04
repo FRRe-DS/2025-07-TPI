@@ -1,20 +1,21 @@
+# portal_compras/urls.py
 from django.urls import path
 from . import views, api_views
 
 urlpatterns = [
-    # URLs para VISTAS HTML - ahora bajo /api/ también
-    path('', views.index, name='index'),  # Esto será /api/
-    path('login/', views.login_view, name='login'),  # Esto será /api/login/
+    # URLs para VISTAS HTML
+    path('', views.index, name='index'),
+    path('login/', views.login_view, name='login'),
     path('registro/', views.registro_view, name='registro'),
     path('logout/', views.logout_view, name='logout'),
     path('productos/', views.lista_productos, name='productos'),
     path('carrito/', views.shopcart_view, name='shopcart'),
     path('ordenes/', views.orders_view, name='ordenes'),
     
-    # URLs para APIs - ya están bajo /api/
-    path('user/profile', api_views.user_profile_api, name='api_profile'),  # /api/user/profile
-    path('shopcart/', api_views.shopcart_get, name='api_shopcart_get'),  # /api/shopcart/
-    path('shopcart/items/', views.api_agregar_al_carrito, name='api_agregar_al_carrito'),  # /api/shopcart/items/
+    # API endpoints
+    path('user/profile', api_views.user_profile_api, name='api_profile'),
+    path('shopcart/', api_views.shopcart_get, name='api_shopcart_get'),
+    path('shopcart/items/', views.api_agregar_al_carrito, name='api_agregar_al_carrito'),
     path('shopcart/clear/', api_views.shopcart_clear, name='api_shopcart_clear'),
     path('shopcart/items/<int:productId>/', api_views.shopcart_remove_item, name='api_shopcart_remove'),
     path('shopcart/checkout/', api_views.checkout_api, name='api_checkout'),
@@ -25,4 +26,8 @@ urlpatterns = [
     # API STOCK
     path('reservas', api_views.obtener_reservas_usuario, name='api_reservas'),
     path('productos/<int:producto_id>/', views.producto_detalle, name='producto-detalle'),
+    
+    # ----- API LOGÍSTICA ------
+    path('api/envios', api_views.obtener_envios_logistica, name='api_envios'),  # Renombrada
+    path('api/envios/crear', api_views.crear_envio_logistica, name='api_crear_envio'),
 ]
