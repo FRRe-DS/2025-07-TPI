@@ -344,7 +344,7 @@ Para contribuir al proyecto:
 <a name="licencia"></a>
 ## ?? Licencia
 
-Este proyecto es parte del Trabajo Práctico Integrador de la Universidad Tecnológica Nacional - Facultad Regional Rosario del Tala. Todos los derechos reservados.
+Este proyecto es parte del Trabajo Práctico Integrador de la Universidad Tecnológica Nacional - Facultad Regional Resistencia. Todos los derechos reservados.
 
 <div align="center"> 
 <sub>Desarrollo de Software - TPI 2025 - Tercera Entrega</sub> 
