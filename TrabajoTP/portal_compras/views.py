@@ -101,6 +101,9 @@ def index(request):
         else:
             print("❌ Home: No se pudo obtener token")
             
+
+
+
     except Exception as e:
         print(f"💥 Home: Error general: {e}")
         import traceback
@@ -108,7 +111,7 @@ def index(request):
     
     return render(request, 'portal_compras/index.html', {
         'user': request.user if request.user.is_authenticated else None,
-        'productos_destacados': productos_destacados
+        'productos_destacados': producto_formateado
     })
     
 def login_view(request):
@@ -350,9 +353,94 @@ def lista_productos(request):
     })
 
 # =============================================================================
-# VISTAS DE PERFIL Y ERROR
+# VISTAS DE LOGÍSTICA
 # =============================================================================
 
+""""def DETALLES_ENVIOS(request):
+    Vista de lista de productos - funciona para usuarios autenticados y no autenticados
+
+    try:
+        # Obtener token para la API (client credentials para no autenticados)
+        access_token = None
+        
+        if request.user.is_authenticated:
+            # Intentar con token de usuario autenticado
+            try:
+                social_auth = request.user.social_auth.get(provider='keycloak')
+                access_token = social_auth.extra_data['access_token']
+                print(f"🔄 Home: Usando token de usuario {request.user.username}")
+            except Exception as e:
+                print(f"❌ Home: Error con token de usuario: {e}")
+                access_token = None
+        
+        # Si no hay token de usuario, usar client credentials
+        if access_token:
+            logistica_url = "https://apilogistica.mmalgor.com.ar"
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = requests.get(logistica_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                ShippingDetails_api = response.json()
+                print(f"✅ Home: {len(ShippingDetails_api)} detalles de compra obtenidos")
+                
+          
+                envio_formateado = {
+                    'Orderid': ShippingDetails_api.get('order_id'),
+                    'Delivery_address': ShippingDetails_api.get('delivery_address'),
+                    'Products': ShippingDetails_api.get('products'),
+                    'Status': ShippingDetails_api.get('status'),
+                    'Transport_type': ShippingDetails_api.get('transport_type'),
+                    'Carrier_name': ShippingDetails_api.get('carrier_name'),
+                    'Estimated_delivery_at': ShippingDetails_api.get('estimated_delivery_at'),
+                    'Total_cost': ShippingDetails_api.get('total_cost'),
+                }
+                    
+                    
+                print(f"🏠 Home: Mostrando {envio_formateado} detalle envio")
+                
+            else:
+                print(f"❌ Home: Error Logistica API: {response.status_code}")
+        else:
+            print("❌ Home: No se pudo obtener token")
+
+    except Exception as e:
+        print(f"💥 Home: Error general: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return render(request, 'portal_compras/index.html', {
+        'user': request.user if request.user.is_authenticated else None,
+        'detalles_envio': envio_formateado
+    })"""
+
+from typing import Any, Dict
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def reservas_page(request) -> Any:
+    """
+    Vista tradicional que renderiza una página con las reservas del usuario.
+    Esta vista puede consumir el endpoint API interno (/api/reservas) o
+    directamente la API externa si preferís.
+    """
+    context: Dict[str, Any] = {
+        "title": "Mis reservas",
+        # Podés cargar datos aquí (llamando a la API interna /api/reservas) o
+        # dejar que el frontend haga la llamada AJAX a /api/reservas.
+    }
+    return render(request, "reservas/list.html", context)
+
+
+
+
+# =============================================================================
+# VISTAS DE PERFIL Y ERROR
+# =============================================================================
 @login_required
 def profile_view(request):
     """Vista del perfil de usuario"""
@@ -706,6 +794,35 @@ def producto_detalle(request, producto_id):
                 "status": "error",
                 "message": f"Producto {producto_id} no encontrado"
             }, status=404)
+            
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error connecting to Stock API: {str(e)}"
+        }, status=500)
+
+# =============================================================================
+# INTEGRACIÓN CON API EXTERNA DE LOGÍSTICA
+# =============================================================================
+
+@keycloak_login_required
+def envios_logistica(request):
+    """API protegida: Proxy para productos del equipo Stock"""
+    try:
+        response = requests.get("https://apilogistica.mmalgor.com.ar", timeout=10)
+        
+        if response.status_code == 200:
+            return JsonResponse({
+                "status": "success",
+                "source": "logistica-api",
+                "client": KEYCLOAK_CLIENT_ID,
+                "data": response.json()
+            })
+        else:
+            return JsonResponse({
+                "status": "error", 
+                "message": f"Stock API responded with status {response.status_code}"
+            }, status=response.status_code)
             
     except requests.exceptions.RequestException as e:
         return JsonResponse({

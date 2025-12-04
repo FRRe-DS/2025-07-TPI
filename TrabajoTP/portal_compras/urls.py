@@ -26,4 +26,10 @@ urlpatterns = [
     # ----- API STOCK ------ #
     path('api/reservas', api_views.obtener_reservas_usuario, name='api_reservas'),
     path('api/productos/<int:producto_id>/', views.producto_detalle, name='producto-detalle'),
+
+    # ----- API LOGISTICA ------ #
+    # Ruta HTML (página)
+    path("reservas/", views.reservas_page, name="reservas_page"),
+    # Ruta API (ejemplo que pediste)
+    path("api/envios", api_views.obtener_reservas_usuario, name="api_reservas")
 ]

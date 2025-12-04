@@ -899,3 +899,79 @@ def cancelar_reserva_stock(request, reserva_id):
             'success': False,
             'error': f'Error cancelando reserva: {str(e)}'
         }
+    
+#=============================================================================
+# NUEVO ENDPOINT PARA OBTENER RESERVAS DESDE LA API EXTERNA DE LOGÍSTICA
+#=============================================================================
+from typing import Any, Dict, Optional
+import requests
+from django.conf import settings
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+API_BASE = getattr(settings, "LOGISTICA_API_BASE", "https://apilogistica.mmalgor.com.ar")
+API_TIMEOUT = getattr(settings, "LOGISTICA_API_TIMEOUT", 10)  # segundos
+SERVICE_TOKEN = getattr(settings, "LOGISTICA_API_TOKEN", None)  # opcional: token de servicio
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def obtener_reservas_usuario(request) -> Response:
+    """
+    Endpoint: GET /api/reservas
+    - Recupera las reservas del usuario autenticado desde la API externa de logística.
+    - Comportamiento:
+      * Si la API externa acepta el mismo token del usuario, se reenvía Authorization.
+      * Si preferís usar un token de servicio, configurá LOGISTICA_API_TOKEN en settings.
+    Query params opcionales:
+      - page, limit, desde, hasta, status, etc. (se reenvían tal cual a la API externa)
+    """
+    # Construir headers
+    headers: Dict[str, str] = {"Accept": "application/json"}
+    # Preferir token de servicio si está configurado
+    if SERVICE_TOKEN:
+        headers["Authorization"] = f"Bearer {SERVICE_TOKEN}"
+    else:
+        auth = request.META.get("HTTP_AUTHORIZATION")
+        if auth:
+            headers["Authorization"] = auth
+
+    # Preparar query params: reenviamos todos los query params recibidos
+    params = request.query_params.dict()
+
+    # Si la API externa espera user_id, lo enviamos (por ejemplo)
+    # asumimos que request.user tiene atributo id
+    if "user_id" not in params:
+        try:
+            params["user_id"] = str(request.user.id)
+        except Exception:
+            # si no hay user id, no agregamos nada
+            pass
+
+    url = f"{API_BASE.rstrip('/')}/reservas"
+
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=API_TIMEOUT)
+    except requests.RequestException as exc:
+        return Response(
+            {"detail": "Error de conexión con la API de logística", "error": str(exc)},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    content_type = resp.headers.get("Content-Type", "")
+    if "application/json" in content_type:
+        try:
+            data = resp.json()
+        except ValueError:
+            return Response(
+                {"detail": "Respuesta inválida de la API de logística (no JSON)"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        # Opcional: aquí podrías validar/normalizar data con Pydantic antes de devolverla
+        return Response(data, status=resp.status_code)
+    else:
+        return Response(
+            {"detail": "Respuesta no JSON desde la API de logística", "raw": resp.text},
+            status=resp.status_code,
+        )
