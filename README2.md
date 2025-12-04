@@ -76,7 +76,7 @@ El sistema utiliza FastAPI para exponer una API RESTful que permite la interacci
     ├──  manage.py
     ├──  requirements.txt
     ├──  2025-07-TPI/
-    │    ├── env
+    │   ├── env
     ├──  portal_compras/
     │   ├── admin.py
     │   ├── api_views.py
@@ -91,9 +91,9 @@ El sistema utiliza FastAPI para exponer una API RESTful que permite la interacci
     │   ├── views.py
     │   ├── __init__.py
     │   ├── migrations/
-    │       ??? 0001_initial.py
-    │       ??? 0002_initial.py
-    │       ??? __init__.py
+    │       ├── 0001_initial.py
+    │       ├── 0002_initial.py
+    │       ├── __init__.py
     ├── realm-config/
     │    ├── realm.json
     ├── static/
@@ -103,7 +103,7 @@ El sistema utiliza FastAPI para exponer una API RESTful que permite la interacci
     │            ├── producto.css
     ├── staticfiles/
     ├── templates/
-    │   │   ????portal_compras/
+    │   │   ├──portal_compras/
     │   │           carrito.html
     │   │           index.html
     │   │           login.html
