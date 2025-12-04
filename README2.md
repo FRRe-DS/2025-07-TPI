@@ -128,9 +128,9 @@ El sistema utiliza FastAPI para exponer una API RESTful que permite la interacci
 1. Ejecución con Docker Compose (Local)
 
   
-  ```bash 
+  
   git clone https://github.com/FRRe-DS/2025-07-TPI.git```
-
+   ```bash 
 2. Navega al directorio del proyecto:
    ```bash
    cd TrabajoTP
